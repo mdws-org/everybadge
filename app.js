@@ -5,10 +5,10 @@
  * costs nothing.
  *
  * Data layout (same keys as the B2 corpus, served from R2 at DATA):
- *   browse/<n>.json   [[id, name, year, anim], ...] for ids n*1000..n*1000+999
- *   cindex/<n>.json   {"<id>": [sha256, typeCode], ...}   same shard boundaries
- *   search.json       every event as [id, name, year, anim] - 2.9 MB gzipped
- *   manifest.json     counts, shard list, year histogram, per-file sha256
+ *   index/browse/<n>.json   [[id, name, year, anim], ...] for ids n*1000..+999
+ *   index/search.json       every event as [id, name, year, anim] - 2.9 MB gz
+ *   index/manifest.json     counts, shard list, year histogram, file sha256s
+ *   cindex/<n>.json         {"<id>": [sha256, typeCode], ...} same shard bounds
  *   thumb/<xx>/<sha>.webp    400px thumbnail; xx = first two hex of sha
  *   meta/<id>.json    the metadata POAP served for the event
  *
@@ -66,14 +66,14 @@
         }
         return cache[url];
     }
-    function shard(n)  { return getJSON(DATA + '/browse/' + n + '.json'); }
+    function shard(n)  { return getJSON(DATA + '/index/browse/' + n + '.json'); }
     function cindex(n) { return getJSON(DATA + '/cindex/' + n + '.json'); }
-    var manifestP = getJSON(DATA + '/manifest.json');
+    var manifestP = getJSON(DATA + '/index/manifest.json');
     var searchP = null;                   // loaded on first keystroke, not on page load
     function searchIndex() {
         if (!searchP) {
             status.textContent = 'Loading the full index (about 3 MB, once)…';
-            searchP = getJSON(DATA + '/search.json').then(function (rows) {
+            searchP = getJSON(DATA + '/index/search.json').then(function (rows) {
                 status.textContent = '';
                 return rows;
             }, function (e) {
@@ -197,7 +197,10 @@
         }
         return step();
     }
+    var yearsFilled = false;
     function fillYears(hist) {
+        if (yearsFilled) return;
+        yearsFilled = true;
         /* Only years inside the plausible era get their own option; the junk
            years (985, 3463…) are real data but not a facet anyone wants. */
         var ys = Object.keys(hist).map(Number).filter(function (y) { return y >= 2018 && y <= 2026; }).sort(function (a, b) { return b - a; });
@@ -370,7 +373,17 @@
         showHome();
         var p = new URLSearchParams(location.search);
         var qs = p.get('q') || '', ys = p.get('y') || '';
-        if (qs || ys) { q.value = qs; yearSel.value = ys; lastQuery = ''; return runSearch(); }
+        if (qs || ys) {
+            /* The year <select> is filled from the manifest, which may not
+               have arrived yet on a cold deep link. Setting .value before the
+               option exists silently selects nothing, and the URL is then
+               rewritten without &y - a bug that only shows on first load. */
+            return manifestP.then(function (m) {
+                if (!yearSel.options.length || yearSel.options.length < 2) fillYears(m.years);
+                q.value = qs; yearSel.value = ys; lastQuery = '';
+                return runSearch();
+            }, function () { q.value = qs; lastQuery = ''; return runSearch(); });
+        }
         if (!grid.children.length) homeReset();
     }
     document.addEventListener('click', function (e) {
