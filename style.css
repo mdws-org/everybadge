@@ -1,0 +1,101 @@
+/* everybadge.org - one stylesheet, no build step, no framework, no webfont.
+   The heavy bytes are the archive; the shell stays under the weight budget. */
+
+:root {
+  --bg: #fff;
+  --fg: #111;
+  --mute: #666;
+  --line: #ddd;
+  --tile: #f3f3f3;
+  --link: #0b57d0;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000;
+    --fg: #e8e8e8;
+    --mute: #9a9a9a;
+    --line: #2a2a2a;
+    --tile: #141414;
+    --link: #8ab4f8;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9em; }
+
+.head, .foot {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+  padding: .75rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+  font-size: .9rem;
+}
+.foot { border-bottom: 0; border-top: 1px solid var(--line); color: var(--mute); margin-top: 3rem; }
+.brand { color: var(--fg); font-weight: 600; letter-spacing: -.01em; }
+.head nav a { margin-left: 1rem; color: var(--mute); }
+
+main { max-width: 72rem; margin: 0 auto; padding: 1.5rem 1.25rem 2rem; }
+h1 { font-size: 1.75rem; line-height: 1.2; letter-spacing: -.02em; margin: .5rem 0 .75rem; }
+h2 { font-size: 1.2rem; margin: 2.5rem 0 .5rem; }
+.lede { color: var(--mute); max-width: 44rem; margin: 0 0 1.5rem; }
+.prose { max-width: 44rem; }
+.prose p { margin: .6rem 0; }
+.roots { overflow-x: auto; padding: .75rem 1rem; background: var(--tile); border-radius: 4px; font-size: .8rem; line-height: 1.6; }
+
+#search { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .5rem; }
+#q, #year {
+  font: inherit; color: var(--fg); background: var(--tile);
+  border: 1px solid var(--line); border-radius: 4px; padding: .5rem .75rem;
+}
+#q { flex: 1 1 18rem; }
+#q:focus, #year:focus { outline: 2px solid var(--link); outline-offset: 1px; }
+.status { color: var(--mute); font-size: .875rem; min-height: 1.4em; margin: 0 0 1rem; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+}
+.card { display: block; color: inherit; }
+.card:hover { text-decoration: none; }
+.card .th {
+  aspect-ratio: 1 / 1; width: 100%;
+  background: var(--tile); border-radius: 50%;
+  overflow: hidden; display: grid; place-items: center;
+}
+.card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card .th.none::after { content: "no artwork"; font-size: .7rem; color: var(--mute); }
+.card .nm {
+  display: block; margin-top: .4rem; font-size: .8rem; line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.card:hover .nm { text-decoration: underline; }
+.card .yr { display: block; color: var(--mute); font-size: .7rem; }
+.untitled { color: var(--mute); font-style: italic; }
+.more { text-align: center; margin: 1.5rem 0; }
+button {
+  font: inherit; color: var(--fg); background: var(--tile);
+  border: 1px solid var(--line); border-radius: 4px; padding: .5rem 1.25rem; cursor: pointer;
+}
+button:hover { border-color: var(--mute); }
+
+.event { display: grid; grid-template-columns: minmax(0, 24rem) minmax(0, 1fr); gap: 2rem; align-items: start; }
+@media (max-width: 40rem) { .event { grid-template-columns: 1fr; } }
+.art { background: var(--tile); border-radius: 4px; padding: 1rem; display: grid; place-items: center; }
+.art img { max-width: 100%; height: auto; display: block; }
+.facts h1 { margin-top: 0; }
+.facts dl { display: grid; grid-template-columns: max-content 1fr; gap: .35rem 1rem; font-size: .95rem; }
+.facts dt { color: var(--mute); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.facts dd a + a::before { content: " · "; color: var(--mute); }
+
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

@@ -21,6 +21,20 @@ The archive is on IPFS. These roots are the whole of it:
 
 If you run IPFS, pinning the metadata root is the single most useful thing you can do. It is 145 MB and it is the copy that does not depend on anyone's server staying up.
 
-## Status
+## The site
 
-The site is not built. This repo is where it will go.
+A static shell - `index.html`, `app.js`, `style.css` - about 10 KB gzipped, no build step, no framework, no webfont. It browses newest-first, searches by name or id with a year filter, and shows one page per event at `/event/<id>`.
+
+All the heavy bytes live behind `https://data.everybadge.org` (an R2 bucket, same key layout as the corpus): a browse index in 1,000-event shards, `cindex/` for artwork hashes, `meta/` for the original metadata, `thumb/` for 400px WebPs. If that host does not answer, the same paths are tried under the IPFS roots above through public gateways - the site is a convenience over an archive that exists without it.
+
+Deployed as a Cloudflare Worker with static assets (`wrangler.jsonc`, `worker.js`), with Netlify as a second host from the same repo (`netlify.toml`). `_headers` carries a strict CSP.
+
+Local development: `python3 ~/Projects/everybadge-build/devserve.py` serves the shell against a local copy of the index.
+
+## Two things the data will tell you that look like bugs
+
+Two events have no name in POAP's own metadata (81 and 146588); they show as "(untitled)". Ninety-five events carry years outside 2018-2026 - organiser typos like 985 and 3463 - and are shown as entered. Nothing in the archive is corrected.
+
+## Security
+
+Report issues at https://github.com/mdws-org/everybadge/issues. There is nothing to log into and nothing is collected; the surface is the static shell and the CSP.
