@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>EveryBadge - the POAP archive</title>
+<meta name="description" content="Every POAP event that existed when POAP shut down in August 2026: 197,577 events, their names, dates and artwork, browsable by anyone and stored so no single machine going away takes it down.">
+<link rel="canonical" href="https://everybadge.org/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="EveryBadge">
+<meta property="og:title" content="EveryBadge - the POAP archive">
+<meta property="og:description" content="197,577 POAP events, their names, dates and artwork, browsable by anyone.">
+<meta property="og:url" content="https://everybadge.org/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='none' stroke='%23888' stroke-width='1.5'/%3E%3Ccircle cx='8' cy='8' r='3' fill='%23888'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<header class="head">
+  <a class="brand" href="/">EveryBadge</a>
+  <nav>
+    <a href="/#about">About</a>
+    <a href="/#mirror">Mirror it</a>
+    <a href="https://github.com/mdws-org/everybadge">Source</a>
+  </nav>
+</header>
+
+<main id="main">
+  <section id="home" class="view">
+    <h1>Every POAP badge that ever existed.</h1>
+    <p class="lede">POAP shut down in August 2026. This is the archive of what it held - <span id="count">197,577</span> events, their names, dates and artwork - browsable here, and stored so that no single machine or person going away takes it down.</p>
+
+    <form id="search" role="search" autocomplete="off">
+      <label class="vh" for="q">Search events by name or id</label>
+      <input id="q" type="search" placeholder="Search by name or event id" spellcheck="false">
+      <select id="year" aria-label="Filter by year"><option value="">Any year</option></select>
+    </form>
+    <p id="status" class="status" aria-live="polite"></p>
+
+    <div id="grid" class="grid" aria-live="polite"></div>
+    <p class="more"><button id="more" type="button" hidden>Show more</button></p>
+  </section>
+
+  <section id="event" class="view" hidden>
+    <p><a href="/" id="back">&larr; All events</a></p>
+    <div class="event">
+      <div class="art"><img id="ev-img" alt="" decoding="async"></div>
+      <div class="facts">
+        <h1 id="ev-name"></h1>
+        <dl>
+          <dt>Event id</dt><dd id="ev-id"></dd>
+          <dt>Year</dt><dd id="ev-year"></dd>
+          <dt>Dates</dt><dd id="ev-dates"></dd>
+          <dt>Place</dt><dd id="ev-place"></dd>
+          <dt>Description</dt><dd id="ev-desc"></dd>
+          <dt>Artwork</dt><dd id="ev-art"></dd>
+          <dt>Original links</dt><dd id="ev-links"></dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section id="about" class="prose">
+    <h2>What this is</h2>
+    <p>POAP - Proof of Attendance Protocol - issued badges for events from 2018 until it shut down on 3 August 2026. The tokens themselves live on Gnosis Chain and are permanent. What they pointed at - the names, dates, descriptions and artwork - was hosted by POAP, and that hosting ended with the company.</p>
+    <p>In POAP's final days every event's metadata and artwork was crawled from its own hosts and verified byte-for-byte against the SHA-256 of each file as served. That is what this site shows: 197,577 events, 181,554 unique artworks, 145 MB of metadata and 194 GB of images. Nothing has been edited. Where an organiser typed the year as 3463, it still says 3463.</p>
+    <p>This site is not affiliated with POAP. It exists because the archive is only useful if people can find things in it.</p>
+    <p>If you are here to save your own badges rather than browse everyone's, use <a href="https://thebenmeadows.com/projects/poap-saver/">poap-saver</a> - enter your address and it writes your badges to your disk.</p>
+  </section>
+
+  <section id="mirror" class="prose">
+    <h2>Mirror it</h2>
+    <p>The archive is on IPFS. These four roots are the whole of it. If only this page survives, they are enough to recover everything:</p>
+    <pre class="roots">metadata     bafybeiglmxn6ta7bt76p5ed6mnmek4m4uvmftonxjqe6zemp6j73qzwwuu   145 MB
+artwork      bafybeickz3h6wnxdwsxeoixj3pxk24fnczqeymuqh7h7xge7iaownd4b3i   194 GB
+thumbnails   bafybeia3q5zqbjdhzdmdny3vzoc6gddjn4tsi22p6jd2lsx3rcm362gin4   4.4 GB
+animations   bafybeibwodt254seymig7cbemxwgj4e5lztui3ccz6ypboafyl5i2ptn4a   47 MB</pre>
+    <p>With <a href="https://docs.ipfs.tech/install/">kubo</a> installed and <code>ipfs daemon</code> running, <code>ipfs pin add &lt;root&gt;</code> fetches and keeps a copy. Pinning the metadata root is the single most useful thing you can do: it is 145 MB and it is the part that cannot be rebuilt from anything else. A hash proves a file is unaltered, but it will not tell you what the event was called.</p>
+    <p>The full registry - every event id, its artwork hash and content type - is in <a href="https://github.com/mdws-org/poap-saver/tree/main/registry/corpus">mdws-org/poap-saver</a>. This site's own source is <a href="https://github.com/mdws-org/everybadge">mdws-org/everybadge</a>.</p>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>EveryBadge is an archive, not a service. It has no accounts, no cookies and no analytics.</span>
+</footer>
+</body>
+</html>

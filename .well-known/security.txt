@@ -1,0 +1,5 @@
+Contact: https://github.com/mdws-org/everybadge/issues
+Expires: 2027-08-18T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://everybadge.org/.well-known/security.txt
+Policy: https://github.com/mdws-org/everybadge#security

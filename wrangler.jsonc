@@ -1,0 +1,34 @@
+// everybadge.org - a Cloudflare Worker serving static assets plus one rewrite.
+//
+// Why a Worker and not a Pages project: Pages cannot serve non-root routes, so a
+// versioned API under /v1/* (planned for the iOS client) would have needed a
+// second hostname. Workers with static assets serve the shell and any future
+// routes from one deployment. Decided 2026-08-18.
+//
+// The apex is bound here as a Custom Domain, which is why no apex DNS record
+// may exist before the first deploy: Cloudflare refuses a Custom Domain on a
+// hostname that already carries a CNAME.
+//
+// Nothing here touches the corpus. Data is served from R2 at data.everybadge.org
+// (see ~/.config/architect/tofu/everybadge-data.tf), and this Worker never
+// proxies it - the browser fetches DATA directly, and the CSP in _headers names
+// that one extra origin.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "everybadge",
+  "main": "./worker.js",
+  "compatibility_date": "2026-08-01",
+  "assets": {
+    "directory": "./",
+    "binding": "ASSETS",
+    // Honest 404s. /event/<id> is the one path with no file behind it, and
+    // worker.js rewrites exactly that; every other miss is a real 404.
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  },
+  "routes": [
+    { "pattern": "everybadge.org", "custom_domain": true },
+    { "pattern": "www.everybadge.org", "custom_domain": true }
+  ],
+  "observability": { "enabled": false }
+}
