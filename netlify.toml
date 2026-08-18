@@ -1,0 +1,15 @@
+# Netlify mirror of everybadge.org (primary: Cloudflare Worker with static
+# assets, see wrangler.jsonc). Second host on a second provider, same as
+# thebenmeadows.com. No build step: the repo root IS the site.
+[build]
+  publish = "."
+  command = ""
+
+# /event/<id> has no file behind it; serve the shell with 200 so app.js can
+# route. Everything else that misses gets Netlify's 404 handling of 404.html.
+[[redirects]]
+  from = "/event/*"
+  to = "/index.html"
+  status = 200
+
+# _headers is read natively; the CSP travels with the site.

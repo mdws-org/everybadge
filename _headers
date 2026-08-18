@@ -1,0 +1,27 @@
+# everybadge.org security headers. Same posture as thebenmeadows.com, with the
+# allowlist cut to what this site actually talks to.
+#
+# img-src / connect-src name three origins beyond 'self':
+#   data.everybadge.org      the R2 hot tier (index, cindex, meta, thumbs)
+#   gateway.pinata.cloud     IPFS fallback  } the two public gateways that
+#   4everland.io             IPFS fallback  } answer a browser (see app.js)
+# ipfs.io and dweb.link are deliberately absent: they 403 browser UAs.
+#
+# HSTS is set at the zone level, not here - the preload submission needs the
+# zone header, and _headers cannot override a Cloudflare zone setting anyway.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://data.everybadge.org https://gateway.pinata.cloud https://4everland.io; connect-src 'self' https://data.everybadge.org https://gateway.pinata.cloud https://4everland.io; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+
+/app.js
+  Cache-Control: public, max-age=3600
+
+/style.css
+  Cache-Control: public, max-age=3600
+
+/.well-known/security.txt
+  Content-Type: text/plain; charset=utf-8
