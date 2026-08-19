@@ -30,6 +30,14 @@
     // Honest 404s. /event/<id> is the one path with no file behind it, and
     // worker.js rewrites exactly that; every other miss is a real 404.
     "not_found_handling": "404-page",
+    // REQUIRED for /event/<id> to work in a browser. Since compatibility date
+    // 2025-04-01, navigation requests (Sec-Fetch-Mode: navigate) are served by
+    // the asset router BEFORE the Worker script runs, so /event/123 matched no
+    // asset and got 404.html while curl - which sends no such header - got 200.
+    // Every real visitor saw a 404 and every curl check passed. Scoped to
+    // /event/* so ordinary asset requests still bypass the Worker and do not
+    // burn Worker invocations against the account-wide free-plan cap.
+    "run_worker_first": ["/event/*"],
     "html_handling": "auto-trailing-slash"
   },
   "routes": [

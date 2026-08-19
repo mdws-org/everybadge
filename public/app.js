@@ -155,6 +155,7 @@
     /* Newest first: shard numbers descend, rows within a shard descend. The
        cursor is (shardNo, offset-from-end) so "Show more" is stateless. */
     var home = { shards: null, si: 0, off: 0, busy: false };
+    var homeFill = null;          // promise for the batch currently filling
     function homeReset() {
         grid.textContent = '';
         home.si = 0; home.off = 0;
@@ -163,20 +164,30 @@
             home.shards = m.shards.slice().reverse();
             $('count').textContent = fmt(m.events);
             fillYears(m.years);
-            return homeMore();
+            homeFill = homeMore();
+            return homeFill;
         }, function (e) {
             status.textContent = 'The archive index did not load. ' + e.message;
         });
     }
-    function homeMore() {
+    function homeMore(userAsked) {
         if (home.busy || !home.shards || home.si >= home.shards.length) return;
         home.busy = true; more.disabled = true;
         var want = PAGE, frag = document.createDocumentFragment();
         function step() {
             if (want <= 0 || home.si >= home.shards.length) {
+                var firstNew = frag.firstChild;
                 grid.appendChild(frag);
                 more.hidden = home.si >= home.shards.length;
                 more.disabled = false; home.busy = false;
+                /* New tiles are appended ABOVE the button, so a reader who
+                   clicked it while it sat at the top of the viewport sees
+                   nothing change - the additions are off-screen behind them.
+                   Bring the first new tile into view, but only when this was a
+                   real click rather than the initial fill. */
+                if (userAsked && firstNew && firstNew.scrollIntoView) {
+                    firstNew.scrollIntoView({ block: 'start' });
+                }
                 return;
             }
             var n = home.shards[home.si];
@@ -246,7 +257,13 @@
             renderHits(hits, text, year);
         }).catch(function () { /* status already set */ });
     }
+    var renderGen = 0;
     function renderHits(hits, text, year) {
+        /* Each render claims a generation. The cindex fetches below are async,
+           so without this an older search's tiles land AFTER a newer search has
+           cleared the grid - the grid then shows both result sets at once, which
+           is what "6 events match" over eighteen tiles looked like. */
+        var gen = ++renderGen;
         grid.textContent = '';
         more.hidden = true;
         var what = text ? '"' + text + '"' : year;
@@ -261,6 +278,7 @@
         Promise.all(ns.map(function (n) { return cindex(n).catch(function () { return null; }); })).then(function (cis) {
             var ciBy = {};
             ns.forEach(function (n, i) { ciBy[n] = cis[i]; });
+            if (gen !== renderGen) return;      // a newer search owns the grid now
             var frag = document.createDocumentFragment();
             hits.forEach(function (r) { frag.appendChild(tile(r, ciBy[Math.floor(r[0] / SHARD)])); });
             grid.appendChild(frag);
@@ -269,7 +287,7 @@
     q.addEventListener('input', function () { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 180); });
     yearSel.addEventListener('change', runSearch);
     $('search').addEventListener('submit', function (e) { e.preventDefault(); clearTimeout(searchTimer); runSearch(); });
-    more.addEventListener('click', homeMore);
+    more.addEventListener('click', function () { homeMore(true); });
 
     /* --------------------------------------------------------- event page */
     function showEvent(id) {
@@ -316,8 +334,12 @@
                 $('ev-desc').textContent = meta.description || '';
                 var links = $('ev-links');
                 if (attr.eventURL) { var a1 = el('a', null, 'Event site'); a1.href = attr.eventURL; a1.rel = 'nofollow noopener'; links.appendChild(a1); }
-                if (meta.home_url) { var a2 = el('a', null, 'POAP page (defunct)'); a2.href = meta.home_url; a2.rel = 'nofollow noopener'; links.appendChild(a2); }
-                if (meta.image_url) { var a3 = el('a', null, 'Original image URL (defunct)'); a3.href = meta.image_url; a3.rel = 'nofollow noopener'; links.appendChild(a3); }
+                /* Not labelled "defunct". Checked 2026-08-19: assets.poap.xyz
+                   serves 200, api.poap.tech serves 200, and app.poap.xyz 301s to
+                   collectors.poap.xyz. The company shut down; these hosts did
+                   not, and calling a working link dead is its own inaccuracy. */
+                if (meta.home_url) { var a2 = el('a', null, 'POAP page'); a2.href = meta.home_url; a2.rel = 'nofollow noopener'; links.appendChild(a2); }
+                if (meta.image_url) { var a3 = el('a', null, 'Original image URL'); a3.href = meta.image_url; a3.rel = 'nofollow noopener'; links.appendChild(a3); }
             } else if (meta === undefined) {
                 $('ev-desc').textContent = 'The metadata file could not be reached right now - not from the archive host, not from the IPFS gateways. The name and year above come from the browse index.';
             }
@@ -344,13 +366,13 @@
                 art.appendChild(full);
                 art.appendChild(document.createTextNode(' · sha256 '));
                 art.appendChild(el('code', null, sha));
-                if (row && row[3]) {
-                    art.appendChild(document.createTextNode(' · '));
-                    var an = el('a', null, 'animated re-encode');
-                    an.href = GATEWAYS[0] + 'bafybeibwodt254seymig7cbemxwgj4e5lztui3ccz6ypboafyl5i2ptn4a/' + id;
-                    an.rel = 'noopener';
-                    art.appendChild(an);
-                }
+                /* No "animated re-encode" link. The index's `anim` flag was
+                   derived from registry/events.json, which is the RESCUE
+                   MIRROR's contents - the events people saved through the
+                   saver - not the animation set. 259 of its 324 entries are
+                   PNGs, so the link was offered on still images. The real anim
+                   set has to come from listing the corpus anim/ prefix, and
+                   until it does the site claims nothing about animation. */
             } else {
                 art.textContent = 'No artwork in the archive for this event.';
             }
@@ -367,6 +389,22 @@
     /* --------------------------------------------------------- routing */
     /* /event/<id> is a real path so links are shareable and archivable; the
        server rewrites it to this page (see _redirects / wrangler assets). */
+    /* #about and #mirror sit BELOW the grid, and the grid grows asynchronously
+       as tiles arrive. Scrolling once lands correctly and is then pushed away by
+       the tiles appearing above - which is why the two anchors appeared to go to
+       the same place. Scroll again once the batch settles. */
+    function scrollToHash(hash) {
+        var t = document.querySelector(hash);
+        if (!t) return;
+        t.scrollIntoView();
+        Promise.resolve(homeFill).then(function () {
+            requestAnimationFrame(function () {
+                var again = document.querySelector(hash);
+                if (again) again.scrollIntoView();
+            });
+        });
+    }
+
     function route() {
         var m = location.pathname.match(/^\/event\/(\d{1,7})\/?$/);
         if (m) return showEvent(Number(m[1]));
@@ -394,7 +432,7 @@
             e.preventDefault();
             history.pushState(null, '', a.pathname + a.search + a.hash);
             route();
-            if (a.hash) { var t = document.querySelector(a.hash); if (t) t.scrollIntoView(); }
+            if (a.hash) scrollToHash(a.hash);
         }
     });
     window.addEventListener('popstate', route);
