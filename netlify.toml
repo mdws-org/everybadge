@@ -2,7 +2,7 @@
 # assets, see wrangler.jsonc). Second host on a second provider, same as
 # thebenmeadows.com. No build step: the repo root IS the site.
 [build]
-  publish = "."
+  publish = "public"
   command = ""
 
 # /event/<id> has no file behind it; serve the shell with 200 so app.js can

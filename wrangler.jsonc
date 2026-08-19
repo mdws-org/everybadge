@@ -9,6 +9,12 @@
 // may exist before the first deploy: Cloudflare refuses a Custom Domain on a
 // hostname that already carries a CNAME.
 //
+// Assets live in public/ rather than the repo root so that .git, worker.js and
+// this file are structurally out of scope. An .assetsignore listing them worked,
+// but "the uploader is told to skip them" is a weaker guarantee than "they are
+// not in the directory": a dry run reported reading 109 files from a tree that
+// holds 67, and rather than explain the discrepancy the ambiguity was removed.
+//
 // Nothing here touches the corpus. Data is served from R2 at data.everybadge.org
 // (see ~/.config/architect/tofu/everybadge-data.tf), and this Worker never
 // proxies it - the browser fetches DATA directly, and the CSP in _headers names
@@ -19,7 +25,7 @@
   "main": "./worker.js",
   "compatibility_date": "2026-08-01",
   "assets": {
-    "directory": "./",
+    "directory": "./public",
     "binding": "ASSETS",
     // Honest 404s. /event/<id> is the one path with no file behind it, and
     // worker.js rewrites exactly that; every other miss is a real 404.

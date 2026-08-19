@@ -1,8 +1,1 @@
-**/.git
 **/.DS_Store
-**/node_modules
-worker.js
-wrangler.jsonc
-netlify.toml
-README.md
-LICENSE
