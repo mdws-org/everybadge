@@ -68,7 +68,10 @@
     }
     function shard(n)  { return getJSON(DATA + '/index/browse/' + n + '.json'); }
     function cindex(n) { return getJSON(DATA + '/cindex/' + n + '.json'); }
-    var manifestP = getJSON(DATA + '/index/manifest.json');
+    /* A function, not a captured promise. getJSON drops a rejected promise so a
+       retry can succeed, but holding one in a module-level variable defeats that:
+       a single transient failure at load would reject every later use forever. */
+    function manifest() { return getJSON(DATA + '/index/manifest.json'); }
     var searchP = null;                   // loaded on first keystroke, not on page load
     function searchIndex() {
         if (!searchP) {
@@ -111,6 +114,18 @@
     }
 
     /* --------------------------------------------------------- rendering */
+    /* Remote strings become hrefs below. eventURL and image_url are free text
+       an organiser typed into POAP's form; a javascript: or data: value would
+       execute on this origin, and the only thing stopping it today is the CSP -
+       a single header that is absent on any IPFS or gateway-served copy of this
+       page. Check the scheme here so the behaviour does not depend on it. */
+    function safeHref(u) {
+        try {
+            var proto = new URL(u, location.href).protocol;
+            return (proto === 'https:' || proto === 'http:') ? u : null;
+        } catch (e) { return null; }
+    }
+
     function el(tag, cls, text) {
         var e = document.createElement(tag);
         if (cls) e.className = cls;
@@ -129,6 +144,9 @@
         img.onerror = function () {
             if (step < GATEWAYS.length) { img.src = thumbIPFS(sha, step++); return; }
             img.onerror = null;
+            /* Fall through to the same "no artwork" affordance an event with no
+               artwork gets - an empty circle read as neither. */
+            if (img.parentNode) img.parentNode.className += ' none';
             img.remove();
         };
         img.src = thumbURL(sha);
@@ -156,11 +174,16 @@
        cursor is (shardNo, offset-from-end) so "Show more" is stateless. */
     var home = { shards: null, si: 0, off: 0, busy: false };
     var homeFill = null;          // promise for the batch currently filling
+    /* Same class of bug renderHits had: these two also build DOM across async
+       fetches and append later. A search landing mid-fill would drop 60 home
+       tiles under the results; a fast A -> back -> B would let A's metadata
+       overwrite B's page. */
+    var homeGen = 0, evGen = 0;
     function homeReset() {
         grid.textContent = '';
         home.si = 0; home.off = 0;
         more.hidden = true;
-        return manifestP.then(function (m) {
+        return manifest().then(function (m) {
             home.shards = m.shards.slice().reverse();
             $('count').textContent = fmt(m.events);
             fillYears(m.years);
@@ -172,10 +195,13 @@
     }
     function homeMore(userAsked) {
         if (home.busy || !home.shards || home.si >= home.shards.length) return;
+        var gen = ++homeGen;
         home.busy = true; more.disabled = true;
         var want = PAGE, frag = document.createDocumentFragment();
         function step() {
             if (want <= 0 || home.si >= home.shards.length) {
+                more.disabled = false; home.busy = false;
+                if (gen !== homeGen) return;     // a search or reset owns the grid
                 var firstNew = frag.firstChild;
                 grid.appendChild(frag);
                 more.hidden = home.si >= home.shards.length;
@@ -202,7 +228,12 @@
                     if (start === 0) { home.si++; home.off = 0; }
                     return step();
                 }, function (e) {
+                    /* Keep what was already collected and do NOT leave the cursor
+                       past the shards that succeeded - discarding frag here made
+                       those events unreachable with nothing to show it. */
+                    if (gen === homeGen) grid.appendChild(frag);
                     status.textContent = 'Could not load part of the archive. ' + e.message;
+                    more.hidden = false;
                     more.disabled = false; home.busy = false;
                 });
         }
@@ -230,8 +261,11 @@
         var key = text + ' ' + year;
         if (key === lastQuery) return;
         lastQuery = key;
-        if (!text && !year) { status.textContent = ''; return homeReset(); }
+        /* Before the early return, not after: clearing the box used to leave
+           /?q=eth in the address bar, and the ': /' branch below was unreachable
+           because the return guaranteed text||year was truthy. */
         history.replaceState(null, '', text || year ? '/?q=' + encodeURIComponent(text) + (year ? '&y=' + year : '') : '/');
+        if (!text && !year) { status.textContent = ''; return homeReset(); }
         searchIndex().then(function (rows) {
             var hits;
             if (/^\d+$/.test(text) && !year) {
@@ -264,6 +298,7 @@
            cleared the grid - the grid then shows both result sets at once, which
            is what "6 events match" over eighteen tiles looked like. */
         var gen = ++renderGen;
+        homeGen++;                          // cancel any home fill still in flight
         grid.textContent = '';
         more.hidden = true;
         var what = text ? '"' + text + '"' : year;
@@ -275,7 +310,23 @@
         var byShard = {};
         hits.forEach(function (r) { (byShard[Math.floor(r[0] / SHARD)] = byShard[Math.floor(r[0] / SHARD)] || []).push(r); });
         var ns = Object.keys(byShard);
-        Promise.all(ns.map(function (n) { return cindex(n).catch(function () { return null; }); })).then(function (cis) {
+        /* Bounded fan-out. A search for "gm" spans 155 shards, which as a bare
+           Promise.all is ~1 MB over 155 simultaneous streams against the data
+           origin - this site's own worst load generator. Six at a time costs a
+           few hundred ms on the widest searches and nothing on typical ones. */
+        function pooled(keys, limit, fn) {
+            var out = new Array(keys.length), i = 0;
+            function worker() {
+                if (i >= keys.length) return Promise.resolve();
+                var k = i++;
+                return Promise.resolve(fn(keys[k])).then(function (v) { out[k] = v; }, function () { out[k] = null; })
+                    .then(worker);
+            }
+            var runners = [];
+            for (var w = 0; w < Math.min(limit, keys.length); w++) runners.push(worker());
+            return Promise.all(runners).then(function () { return out; });
+        }
+        pooled(ns, 6, function (n) { return cindex(n); }).then(function (cis) {
             var ciBy = {};
             ns.forEach(function (n, i) { ciBy[n] = cis[i]; });
             if (gen !== renderGen) return;      // a newer search owns the grid now
@@ -296,8 +347,18 @@
         $('mirror').hidden = true;
         $('event').hidden = false;
         document.title = 'Event #' + id + ' - EveryBadge';
+        var gen = ++evGen;
         var img = $('ev-img');
+        /* Clear the handler BEFORE the src. This element is reused for every
+           event, and removing src while a load is in flight fires error, which
+           would run the PREVIOUS event's closure and paint its artwork here. */
+        img.onerror = null;
         img.removeAttribute('src'); img.alt = '';
+        $('ev-name').className = '';
+        ['ev-year', 'ev-dates', 'ev-place', 'ev-desc', 'ev-art', 'ev-links'].forEach(function (k) {
+            var dd = $(k), dt = dd.previousElementSibling;
+            dd.hidden = false; if (dt) dt.hidden = false;
+        });
         ['ev-name', 'ev-id', 'ev-year', 'ev-dates', 'ev-place', 'ev-desc', 'ev-art', 'ev-links'].forEach(function (k) { $(k).textContent = ''; });
         $('ev-id').textContent = String(id);
         $('ev-name').textContent = 'Loading…';
@@ -311,10 +372,15 @@
         var ciP = cindex(n).then(function (ci) { return ci[String(id)] || null; }, function () { return null; });
 
         Promise.all([rowP, ciP, getMeta(id).catch(function () { return undefined; })]).then(function (r) {
+            if (gen !== evGen) return;      // the reader already navigated on
             var row = r[0], entry = r[1], meta = r[2];
             if (!row && meta === null) {
                 $('ev-name').textContent = 'No event #' + id + ' in the archive';
-                $('ev-desc').textContent = 'Either it never existed or POAP never stored anything for it. 42,423 ids in the range are gaps like this.';
+                $('ev-desc').textContent = 'Either it never existed or POAP never stored anything for it. The archive covers ids 1 to 229,274, and 31,697 ids inside that range are gaps like this one.';
+                ['ev-year', 'ev-dates', 'ev-place', 'ev-art', 'ev-links'].forEach(function (k) {
+                    var dd = $(k), dt = dd.previousElementSibling;
+                    dd.hidden = true; if (dt) dt.hidden = true;
+                });
                 return;
             }
             var name = (meta && meta.name) || (row && row[1]) || '';
@@ -324,8 +390,13 @@
             $('ev-year').textContent = (meta && meta.year) || (row && row[2]) || '';
 
             if (meta) {
-                var attr = {};
-                (meta.attributes || []).forEach(function (a) { attr[a.trait_type] = a.value; });
+                /* Object.create(null): trait_type is remote. An attribute named
+                   __proto__ would otherwise make attr.eventURL resolve through
+                   the prototype chain rather than from a real attribute. */
+                var attr = Object.create(null);
+                (Array.isArray(meta.attributes) ? meta.attributes : []).forEach(function (a) {
+                    if (a && typeof a.trait_type === 'string') attr[a.trait_type] = a.value;
+                });
                 var dates = [attr.startDate, attr.endDate].filter(Boolean);
                 $('ev-dates').textContent = dates.length ? (dates[0] === dates[1] ? dates[0] : dates.join(' to ')) : '';
                 var place = [attr.city, attr.country].filter(Boolean).join(', ');
@@ -333,13 +404,20 @@
                 $('ev-place').textContent = place;
                 $('ev-desc').textContent = meta.description || '';
                 var links = $('ev-links');
-                if (attr.eventURL) { var a1 = el('a', null, 'Event site'); a1.href = attr.eventURL; a1.rel = 'nofollow noopener'; links.appendChild(a1); }
-                /* Not labelled "defunct". Checked 2026-08-19: assets.poap.xyz
-                   serves 200, api.poap.tech serves 200, and app.poap.xyz 301s to
-                   collectors.poap.xyz. The company shut down; these hosts did
-                   not, and calling a working link dead is its own inaccuracy. */
-                if (meta.home_url) { var a2 = el('a', null, 'POAP page'); a2.href = meta.home_url; a2.rel = 'nofollow noopener'; links.appendChild(a2); }
-                if (meta.image_url) { var a3 = el('a', null, 'Original image URL'); a3.href = meta.image_url; a3.rel = 'nofollow noopener'; links.appendChild(a3); }
+                var ev = attr.eventURL && safeHref(attr.eventURL);
+                if (ev) { var a1 = el('a', null, 'Event site'); a1.href = ev; a1.rel = 'nofollow noopener'; links.appendChild(a1); }
+                /* No "POAP page" link. home_url is keyed on the TOKEN index, not
+                   the event, so every one of the 197,577 records carries
+                   app.poap.xyz/token/1 - checked across ids 1, 50000, 120345 and
+                   190294, all identical. Linking it would send every visitor to
+                   DappCon 2018. There is no working per-event replacement:
+                   collectors.poap.xyz/drop/<id> 301s to poap.xyz's homepage for
+                   any id, valid or not. The data is faithful; the label was not.
+
+                   image_url IS per-event and still resolves (assets.poap.xyz
+                   returned 200 on 2026-08-19), so it stays - scheme-checked. */
+                var img_ = meta.image_url && safeHref(meta.image_url);
+                if (img_) { var a3 = el('a', null, 'Original image URL'); a3.href = img_; a3.rel = 'nofollow noopener'; links.appendChild(a3); }
             } else if (meta === undefined) {
                 $('ev-desc').textContent = 'The metadata file could not be reached right now - not from the archive host, not from the IPFS gateways. The name and year above come from the browse index.';
             }
@@ -376,6 +454,15 @@
             } else {
                 art.textContent = 'No artwork in the archive for this event.';
             }
+        }).catch(function (e) {
+            /* Every other failure in this file has a written message; this path
+               had none, so one malformed record left the page on "Loading..."
+               with nothing to read. */
+            if (gen !== evGen) return;
+            $('ev-name').textContent = 'Event #' + id;
+            $('ev-desc').hidden = false;
+            $('ev-desc').previousElementSibling.hidden = false;
+            $('ev-desc').textContent = 'This event could not be displayed: ' + (e && e.message ? e.message : 'unexpected data') + '.';
         });
     }
     function showHome() {
@@ -416,19 +503,29 @@
                have arrived yet on a cold deep link. Setting .value before the
                option exists silently selects nothing, and the URL is then
                rewritten without &y - a bug that only shows on first load. */
-            return manifestP.then(function (m) {
+            return manifest().then(function (m) {
                 if (!yearSel.options.length || yearSel.options.length < 2) fillYears(m.years);
                 q.value = qs; yearSel.value = ys; lastQuery = '';
                 return runSearch();
             }, function () { q.value = qs; lastQuery = ''; return runSearch(); });
         }
         if (!grid.children.length) homeReset();
+        if (location.hash) scrollToHash(location.hash);   // cold load of /#about
     }
     document.addEventListener('click', function (e) {
         var a = e.target.closest && e.target.closest('a');
         if (!a || a.origin !== location.origin || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
         if (/^\/event\/\d+/.test(a.pathname) || a.pathname === '/') {
-            if (a.hash && a.pathname === '/' && !$('event').hidden === false) return; // in-page anchor on home
+            /* Was `!$('event').hidden === false`, which parses as
+               `(!hidden) === false` - i.e. "we are on the home view" - so the
+               home page took the native scroll and skipped scrollToHash, which
+               is the only case scrollToHash exists for. */
+            if (a.hash && a.pathname === '/' && $('event').hidden) {
+                e.preventDefault();
+                history.pushState(null, '', a.pathname + a.search + a.hash);
+                scrollToHash(a.hash);
+                return;
+            }
             e.preventDefault();
             history.pushState(null, '', a.pathname + a.search + a.hash);
             route();

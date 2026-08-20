@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark light">
 <title>EveryBadge - the POAP archive</title>
-<meta name="description" content="Every POAP event that existed when POAP shut down in August 2026: 197,577 events, their names, dates and artwork, browsable by anyone and stored so no single machine going away takes it down.">
+<meta name="description" content="Every POAP event the archive captured: 197,577 events, their names, dates and artwork, browsable by anyone and stored so no single machine going away takes it down.">
 <link rel="canonical" href="https://everybadge.org/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="EveryBadge">
@@ -13,6 +13,11 @@
 <meta property="og:description" content="197,577 POAP events, their names, dates and artwork, browsable by anyone.">
 <meta property="og:url" content="https://everybadge.org/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='none' stroke='%23888' stroke-width='1.5'/%3E%3Ccircle cx='8' cy='8' r='3' fill='%23888'/%3E%3C/svg%3E">
+<!-- The data origin cannot be reached until app.js parses and runs; the
+     TCP+TLS handshake to it measures ~205 ms. crossorigin is required because
+     the JSON is fetched with CORS, which uses the anonymous connection pool -
+     without it the warmed connection is the wrong pool and saves nothing. -->
+<link rel="preconnect" href="https://data.everybadge.org" crossorigin>
 <link rel="stylesheet" href="/style.css">
 <script src="/app.js" defer></script>
 </head>
@@ -29,7 +34,7 @@
 <main id="main">
   <section id="home" class="view">
     <h1>Every POAP badge that ever existed.</h1>
-    <p class="lede">POAP shut down in August 2026. This is the archive of what it held - <span id="count">197,577</span> events, their names, dates and artwork - browsable here, and stored so that no single machine or person going away takes it down.</p>
+    <p class="lede">POAP announced it was winding down on 3 August 2026, after months in maintenance mode. Its hosts still answer today and no cutoff date has been published. This is what they held when the crawl ran: <span id="count">197,577</span> events, browsable here and stored so the archive outlives the day those hosts stop.</p>
 
     <form id="search" role="search" autocomplete="off">
       <label class="vh" for="q">Search events by name or id</label>
@@ -38,7 +43,10 @@
     </form>
     <p id="status" class="status" aria-live="polite"></p>
 
-    <div id="grid" class="grid" aria-live="polite"></div>
+    <!-- No aria-live here: #status already announces the result count, and a live
+         region on the grid makes a screen reader read all sixty tile names on
+         every render, every search and every "Show more". -->
+    <div id="grid" class="grid"></div>
     <p class="more"><button id="more" type="button" hidden>Show more</button></p>
   </section>
 
@@ -63,7 +71,7 @@
 
   <section id="about" class="prose">
     <h2>What this is</h2>
-    <p>POAP - Proof of Attendance Protocol - issued badges for events from 2018 until it shut down on 3 August 2026. The tokens themselves live on Gnosis Chain and are permanent. What they pointed at - the names, dates, descriptions and artwork - was hosted by POAP, and that hosting ended with the company.</p>
+    <p>POAP - Proof of Attendance Protocol - has issued badges for events since 2018. On 3 August 2026 it announced it was winding down, after months in maintenance mode. The tokens live on Gnosis Chain and are permanent. What they point at - the names, dates, descriptions and artwork - is hosted by POAP, and no date has been published for when that hosting stops. This archive exists so the answer does not depend on it.</p>
     <p>In POAP's final days every event's metadata and artwork was crawled from its own hosts and verified byte-for-byte against the SHA-256 of each file as served. That is what this site shows: 197,577 events, 181,554 unique artworks, 145 MB of metadata and 194 GB of images. Nothing has been edited. Where an organiser typed the year as 3463, it still says 3463.</p>
     <p>This site is not affiliated with POAP. It exists because the archive is only useful if people can find things in it.</p>
     <p>If you are here to save your own badges rather than browse everyone's, use <a href="https://thebenmeadows.com/projects/poap-saver/">poap-saver</a> - enter your address and it writes your badges to your disk.</p>
