@@ -4,13 +4,17 @@
  * DATA; this file is meant to stay small enough that a mirror re-syncing it
  * costs nothing.
  *
- * Data layout (same keys as the B2 corpus, served from R2 at DATA):
- *   index/browse/<n>.json   [[id, name, year, anim], ...] for ids n*1000..+999
- *   index/search.json       every event as [id, name, year, anim] - 2.9 MB gz
- *   index/manifest.json     counts, shard list, year histogram, file sha256s
- *   cindex/<n>.json         {"<id>": [sha256, typeCode], ...} same shard bounds
- *   thumb/<xx>/<sha>.webp    400px thumbnail; xx = first two hex of sha
- *   meta/<id>.json    the metadata POAP served for the event
+ * Data layout, served from R2 at DATA. The JSON tiers live under /v1/: their
+ * shapes are a contract the moment a second client (the iOS app) exists, and a
+ * version segment is the only way to change a shape without breaking every
+ * deployed reader. Thumbnails are content-addressed and have no shape to
+ * break, so they stay unversioned.
+ *   v1/index/browse/<n>.json  [[id, name, year, anim], ...] for ids n*1000..+999
+ *   v1/index/search.json      every event as [id, name, year, anim] - 2.9 MB gz
+ *   v1/index/manifest.json    counts, shard list, year histogram, file sha256s
+ *   v1/cindex/<n>.json        {"<id>": [sha256, typeCode], ...} same shard bounds
+ *   v1/meta/<id>.json         the metadata POAP served for the event
+ *   thumb/<xx>/<sha>.webp     400px thumbnail; xx = first two hex of sha
  *
  * A grid tile needs browse (name) + cindex (sha -> thumbnail path). They are
  * separate files on purpose: the sha is 64 hex chars per event and would
@@ -36,6 +40,7 @@
        script, so the dev page can run under the production CSP (script-src
        'self') and a CSP regression cannot hide behind the dev server. */
     var DATA = (document.currentScript && document.currentScript.dataset.data) || 'https://data.everybadge.org';
+    var V = DATA + '/v1';                // versioned JSON tiers; thumbnails stay at DATA
     var SHARD = 1000;
     var PAGE = 60;                       // tiles per "page" of the home grid
     var ROOTS = {
@@ -68,17 +73,17 @@
         }
         return cache[url];
     }
-    function shard(n)  { return getJSON(DATA + '/index/browse/' + n + '.json'); }
-    function cindex(n) { return getJSON(DATA + '/cindex/' + n + '.json'); }
+    function shard(n)  { return getJSON(V + '/index/browse/' + n + '.json'); }
+    function cindex(n) { return getJSON(V + '/cindex/' + n + '.json'); }
     /* A function, not a captured promise. getJSON drops a rejected promise so a
        retry can succeed, but holding one in a module-level variable defeats that:
        a single transient failure at load would reject every later use forever. */
-    function manifest() { return getJSON(DATA + '/index/manifest.json'); }
+    function manifest() { return getJSON(V + '/index/manifest.json'); }
     var searchP = null;                   // loaded on first keystroke, not on page load
     function searchIndex() {
         if (!searchP) {
             status.textContent = 'Loading the full index (about 3 MB, once)…';
-            searchP = getJSON(DATA + '/index/search.json').then(function (rows) {
+            searchP = getJSON(V + '/index/search.json').then(function (rows) {
                 status.textContent = '';
                 return rows;
             }, function (e) {
@@ -91,7 +96,7 @@
     }
     function thumbURL(sha)     { return DATA + '/thumb/' + sha.slice(0, 2) + '/' + sha + '.webp'; }
     function thumbIPFS(sha, i) { return GATEWAYS[i] + ROOTS.thumb + '/' + sha.slice(0, 2) + '/' + sha + '.webp'; }
-    function metaURL(id)       { return DATA + '/meta/' + id + '.json'; }
+    function metaURL(id)       { return V + '/meta/' + id + '.json'; }
     function metaIPFS(id, i)   { return GATEWAYS[i] + ROOTS.meta + '/' + id + '.json'; }
 
     /* Metadata with gateway fallback. Every source is tried before giving up,
