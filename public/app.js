@@ -31,9 +31,11 @@
     'use strict';
 
     /* The one thing that changes between local testing and production. A dev
-       server can set window.EVERYBADGE_DATA before this script runs; nothing
-       else in the file knows where the data lives. */
-    var DATA = window.EVERYBADGE_DATA || 'https://data.everybadge.org';
+       server sets data-data on this script's own <script> tag; nothing else in
+       the file knows where the data lives. An attribute rather than an inline
+       script, so the dev page can run under the production CSP (script-src
+       'self') and a CSP regression cannot hide behind the dev server. */
+    var DATA = (document.currentScript && document.currentScript.dataset.data) || 'https://data.everybadge.org';
     var SHARD = 1000;
     var PAGE = 60;                       // tiles per "page" of the home grid
     var ROOTS = {
@@ -168,6 +170,16 @@
         return a;
     }
     function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+    /* Move keyboard focus to a heading after an in-page view switch. Hiding
+       the element that holds focus (a tile link, the back link) drops focus to
+       <body>, and the next Tab restarts from the top of the document. Only on
+       navigation the reader initiated - a cold load must not steal focus. */
+    var navigated = false;
+    function focusTo(elm) {
+        if (!navigated || !elm) return;
+        if (!elm.hasAttribute('tabindex')) elm.setAttribute('tabindex', '-1');
+        try { elm.focus({ preventScroll: true }); } catch (e) { elm.focus(); }
+    }
 
     /* --------------------------------------------------------- home grid */
     /* Newest first: shard numbers descend, rows within a shard descend. The
@@ -376,6 +388,7 @@
             var row = r[0], entry = r[1], meta = r[2];
             if (!row && meta === null) {
                 $('ev-name').textContent = 'No event #' + id + ' in the archive';
+                focusTo($('ev-name'));
                 $('ev-desc').textContent = 'Either it never existed or POAP never stored anything for it. The archive covers ids 1 to 229,274, and 31,697 ids inside that range are gaps like this one.';
                 ['ev-year', 'ev-dates', 'ev-place', 'ev-art', 'ev-links'].forEach(function (k) {
                     var dd = $(k), dt = dd.previousElementSibling;
@@ -387,6 +400,7 @@
             $('ev-name').textContent = name || '(untitled)';
             if (!name) $('ev-name').className = 'untitled';
             document.title = (name || 'Event #' + id) + ' - EveryBadge';
+            focusTo($('ev-name'));
             $('ev-year').textContent = (meta && meta.year) || (row && row[2]) || '';
 
             if (meta) {
@@ -466,16 +480,19 @@
         });
     }
     function showHome() {
+        var wasEvent = !$('event').hidden;
         $('event').hidden = true;
         $('home').hidden = false;
         $('about').hidden = false;
         $('mirror').hidden = false;
         document.title = 'EveryBadge - the POAP archive';
+        if (wasEvent) focusTo($('home').querySelector('h1'));
     }
 
     /* --------------------------------------------------------- routing */
     /* /event/<id> is a real path so links are shareable and archivable; the
-       server rewrites it to this page (see _redirects / wrangler assets). */
+       host rewrites it to this page (worker.js on Cloudflare, netlify.toml on
+       Netlify). */
     /* #about and #mirror sit BELOW the grid, and the grid grows asynchronously
        as tiles arrive. Scrolling once lands correctly and is then pushed away by
        the tiles appearing above - which is why the two anchors appeared to go to
@@ -504,7 +521,7 @@
                option exists silently selects nothing, and the URL is then
                rewritten without &y - a bug that only shows on first load. */
             return manifest().then(function (m) {
-                if (!yearSel.options.length || yearSel.options.length < 2) fillYears(m.years);
+                if (yearSel.options.length < 2) fillYears(m.years);
                 q.value = qs; yearSel.value = ys; lastQuery = '';
                 return runSearch();
             }, function () { q.value = qs; lastQuery = ''; return runSearch(); });
@@ -527,11 +544,12 @@
                 return;
             }
             e.preventDefault();
+            navigated = true;
             history.pushState(null, '', a.pathname + a.search + a.hash);
             route();
             if (a.hash) scrollToHash(a.hash);
         }
     });
-    window.addEventListener('popstate', route);
+    window.addEventListener('popstate', function () { navigated = true; route(); });
     route();
 })();

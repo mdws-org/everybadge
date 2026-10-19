@@ -22,6 +22,10 @@
 }
 
 * { box-sizing: border-box; }
+/* The UA default for [hidden] loses to any later display rule on the same
+   element; make it unconditional so a future .view rule cannot un-hide a
+   section. */
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
@@ -60,6 +64,11 @@ h2 { font-size: 1.2rem; margin: 2.5rem 0 .5rem; }
 }
 #q { flex: 1 1 18rem; }
 #q:focus, #year:focus { outline: 2px solid var(--link); outline-offset: 1px; }
+/* Links and buttons otherwise rely on the UA ring, which is faint against
+   --tile, and a { text-decoration: none } removed the other cue. Headings
+   given programmatic focus after a view switch rely on :focus-visible, which
+   shows a ring only after keyboard navigation. */
+a:focus-visible, button:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 2px; }
 .status { color: var(--mute); font-size: .875rem; min-height: 1.4em; margin: 0 0 1rem; }
 
 .grid {
