@@ -56,6 +56,15 @@
        change without notice. */
     var GATEWAYS = ['https://gateway.pinata.cloud/ipfs/', 'https://4everland.io/ipfs/'];
     var EXT = { p: 'png', g: 'gif', j: 'jpg', w: 'webp' };
+    /* A cindex entry is [sha256, typeCode], read from the data host. Both go
+       into URLs and the page, so neither is trusted as given: a sha must be
+       64 hex characters, and a type code must be one of EXT's own keys -
+       EXT['constructor'] is a function, not a missing value. */
+    function artwork(entry) {
+        if (!Array.isArray(entry) || typeof entry[0] !== 'string' || !/^[0-9a-f]{64}$/.test(entry[0])) return null;
+        var ext = Object.prototype.hasOwnProperty.call(EXT, entry[1]) ? EXT[entry[1]] : 'bin';
+        return { sha: entry[0], ext: ext };
+    }
 
     var $ = function (id) { return document.getElementById(id); };
     var grid = $('grid'), status = $('status'), more = $('more');
@@ -164,8 +173,8 @@
         var a = el('a', 'card');
         a.href = '/event/' + id;
         var th = el('div', 'th');
-        var entry = ci && ci[String(id)];
-        if (entry) th.appendChild(thumbImg(entry[0], ''));
+        var art = artwork(ci && ci[String(id)]);
+        if (art) th.appendChild(thumbImg(art.sha, ''));
         else th.className += ' none';
         a.appendChild(th);
         var nm = el('span', name ? 'nm' : 'nm untitled', name || '(untitled)');
@@ -467,9 +476,9 @@
                 var empty = !dd.textContent && !dd.children.length;
                 dd.hidden = empty; if (dt) dt.hidden = empty;
             });
-            var art = $('ev-art');
-            if (entry) {
-                var sha = entry[0], ext = EXT[entry[1]] || 'bin';
+            var art = $('ev-art'), found = artwork(entry);
+            if (found) {
+                var sha = found.sha, ext = found.ext;
                 img.alt = name ? 'Artwork for ' + name : 'Event artwork';
                 var step = 0;
                 img.onerror = function () {
@@ -522,13 +531,20 @@
        as tiles arrive. Scrolling once lands correctly and is then pushed away by
        the tiles appearing above - which is why the two anchors appeared to go to
        the same place. Scroll again once the batch settles. */
+    /* The element a #hash names, by id. querySelector would read the hash as
+       a CSS selector, and "#1" (or anything a visitor types) is not one: it
+       threw, and on a cold load nothing caught it. */
+    function hashTarget(hash) {
+        try { return document.getElementById(decodeURIComponent(hash.slice(1))); }
+        catch (e) { return null; }
+    }
     function scrollToHash(hash) {
-        var t = document.querySelector(hash);
+        var t = hashTarget(hash);
         if (!t) return;
         t.scrollIntoView();
         Promise.resolve(homeFill).then(function () {
             requestAnimationFrame(function () {
-                var again = document.querySelector(hash);
+                var again = hashTarget(hash);
                 if (again) again.scrollIntoView();
             });
         });
