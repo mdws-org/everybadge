@@ -110,19 +110,22 @@
 
     /* Metadata with gateway fallback. Every source is tried before giving up,
        and "no such event" (404 from DATA) is not retried anywhere - a gap is a
-       gap. */
+       gap. Resolves to {meta, via}: `via` is the gateway that answered, or null
+       when DATA did, because a gateway's copy is shown unchecked and the page
+       says so. */
     function getMeta(id) {
         return fetch(metaURL(id)).then(function (r) {
-            if (r.status === 404) return null;
+            if (r.status === 404) return { meta: null, via: null };
             if (!r.ok) throw new Error(r.status);
-            return r.json();
+            return r.json().then(function (meta) { return { meta: meta, via: null }; });
         }).catch(function () {
             var i = 0;
             function next() {
                 if (i >= GATEWAYS.length) throw new Error('unreachable');
+                var gateway = GATEWAYS[i];
                 return fetch(metaIPFS(id, i++)).then(function (r) {
                     if (!r.ok) return next();
-                    return r.json();
+                    return r.json().then(function (meta) { return { meta: meta, via: gateway }; });
                 }, next);
             }
             return next();
@@ -419,12 +422,13 @@
 
         Promise.all([rowP, ciP, getMeta(id).catch(function () { return undefined; })]).then(function (r) {
             if (gen !== evGen) return;      // the reader already navigated on
-            var row = r[0], entry = r[1], meta = r[2];
+            var row = r[0], entry = r[1], meta = r[2] ? r[2].meta : undefined;
+            var via = r[2] ? r[2].via : null;
             if (!row && meta === null) {
                 $('ev-name').textContent = 'No event #' + id + ' in the archive';
                 focusTo($('ev-name'));
                 $('ev-desc').textContent = 'Either it never existed or POAP never stored anything for it. The archive covers ids 1 to 229,274, and 31,697 ids inside that range are gaps like this one.';
-                ['ev-year', 'ev-dates', 'ev-place', 'ev-art', 'ev-links'].forEach(function (k) {
+                ['ev-year', 'ev-dates', 'ev-place', 'ev-art', 'ev-links', 'ev-source'].forEach(function (k) {
                     var dd = $(k), dt = dd.previousElementSibling;
                     dd.hidden = true; if (dt) dt.hidden = true;
                 });
@@ -469,9 +473,12 @@
             } else if (meta === undefined) {
                 $('ev-desc').textContent = 'The metadata file could not be reached right now - not from the archive host, not from the IPFS gateways. The name and year above come from the browse index.';
             }
+            $('ev-source').textContent = via
+                ? 'The archive host did not answer, so this record was read from the public IPFS gateway ' + new URL(via).hostname + '. It has not been checked against the archive.'
+                : '';
 
             /* An empty row reads as a bug; hide the label with it. */
-            ['ev-year', 'ev-dates', 'ev-place', 'ev-desc', 'ev-links'].forEach(function (k) {
+            ['ev-year', 'ev-dates', 'ev-place', 'ev-desc', 'ev-links', 'ev-source'].forEach(function (k) {
                 var dd = $(k), dt = dd.previousElementSibling;
                 var empty = !dd.textContent && !dd.children.length;
                 dd.hidden = empty; if (dt) dt.hidden = empty;

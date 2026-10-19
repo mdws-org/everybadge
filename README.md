@@ -25,7 +25,7 @@ If you run IPFS, pinning the metadata root is the single most useful thing you c
 
 A static shell - `index.html`, `app.js`, `style.css` - about 10 KB gzipped, no build step, no framework, no webfont. It browses newest-first, searches by name or id with a year filter, and shows one page per event at `/event/<id>`.
 
-All the heavy bytes live behind `https://data.everybadge.org` (an R2 bucket, same key layout as the corpus): a browse index in 1,000-event shards, `cindex/` for artwork hashes, `meta/` for the original metadata, `thumb/` for 400px WebPs. If that host does not answer, the same paths are tried under the IPFS roots above through public gateways - the site is a convenience over an archive that exists without it.
+All the heavy bytes live behind `https://data.everybadge.org` (an R2 bucket, same key layout as the corpus): a browse index in 1,000-event shards, `cindex/` for artwork hashes, `meta/` for the original metadata, `thumb/` for 400px WebPs. If that host does not answer, the same paths are tried under the IPFS roots above through public gateways - the site is a convenience over an archive that exists without it. The event page says when its metadata came from a gateway, unchecked against the archive, and the footer says that a gateway then sees which event was opened.
 
 Deployed as a Cloudflare Worker with static assets (`wrangler.jsonc`, `worker.js`), with Netlify as a second host from the same repo (`netlify.toml`). `_headers` carries a strict CSP.
 
