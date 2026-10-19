@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark light">
 <title>EveryBadge - the POAP archive</title>
-<meta name="description" content="Every POAP event the archive captured: 197,577 events, their names, dates and artwork, browsable by anyone and stored so no single machine going away takes it down.">
+<meta name="description" content="Every POAP event the archive captured: 197,589 events, their names, dates and artwork, browsable by anyone and stored so no single machine going away takes it down.">
 <link rel="canonical" href="https://everybadge.org/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="EveryBadge">
 <meta property="og:title" content="EveryBadge - the POAP archive">
-<meta property="og:description" content="197,577 POAP events, their names, dates and artwork, browsable by anyone.">
+<meta property="og:description" content="197,589 POAP events, their names, dates and artwork, browsable by anyone.">
 <meta property="og:url" content="https://everybadge.org/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='none' stroke='%23888' stroke-width='1.5'/%3E%3Ccircle cx='8' cy='8' r='3' fill='%23888'/%3E%3C/svg%3E">
 <!-- The data origin cannot be reached until app.js parses and runs; the
@@ -33,13 +33,16 @@
 
 <main id="main">
   <section id="home">
-    <h1>Every POAP badge, through August 2026.</h1>
-    <p class="lede">POAP announced it was winding down on 3 August 2026, after months in maintenance mode. Its hosts still answer today and no cutoff date has been published. This is what they held when the crawl ran, on 19 August 2026: <span id="count">197,577</span> events, browsable here and stored so the archive outlives the day those hosts stop. POAP has issued a few dozen drops since, and the archive will catch up.</p>
+    <h1>Every POAP badge, through September 2026.</h1>
+    <p class="lede">POAP announced it was winding down on 3 August 2026, after months in maintenance mode. Its hosts still answer today and no cutoff date has been published. This is what they held when the crawl ran, on 19 August 2026, topped up on 19 October 2026 with the drops POAP issued since: <span id="count">197,589</span> events, browsable here and stored so the archive outlives the day those hosts stop. The archive catches up monthly.</p>
 
     <form id="search" role="search" autocomplete="off">
-      <label class="vh" for="q">Search events by name or id</label>
-      <input id="q" type="search" placeholder="Search by name or event id" spellcheck="false">
+      <label class="vh" for="q">Search events by name, place or id</label>
+      <input id="q" type="search" placeholder="Search by name, place or event id" spellcheck="false">
       <select id="year" aria-label="Filter by year"><option value="">Any year</option></select>
+      <select id="country" aria-label="Filter by country"><option value="">Any country</option></select>
+      <select id="sort" aria-label="Sort order"><option value="">Newest first</option><option value="mints">Most minted</option></select>
+      <label class="check"><input id="in-desc" type="checkbox"> Search descriptions too</label>
     </form>
     <p id="status" class="status" aria-live="polite"></p>
 
@@ -61,6 +64,7 @@
           <dt>Year</dt><dd id="ev-year"></dd>
           <dt>Dates</dt><dd id="ev-dates"></dd>
           <dt>Place</dt><dd id="ev-place"></dd>
+          <dt>Mints</dt><dd id="ev-mints"></dd>
           <dt>Description</dt><dd id="ev-desc"></dd>
           <dt>Artwork</dt><dd id="ev-art"></dd>
           <dt>Original links</dt><dd id="ev-links"></dd>
