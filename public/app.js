@@ -197,6 +197,12 @@
        overwrite B's page. */
     var homeGen = 0, evGen = 0;
     function homeReset() {
+        /* Claim the grid from anything still filling it: a search whose
+           thumbnail lookups have not come back (renderGen), and a "Show more"
+           batch still fetching (homeGen). That batch held home.busy, which made
+           the fill below return at once and left the grid blank. */
+        homeGen++; renderGen++;
+        home.busy = false;
         grid.textContent = '';
         home.si = 0; home.off = 0;
         more.hidden = true;
@@ -216,9 +222,10 @@
         home.busy = true; more.disabled = true;
         var want = PAGE, frag = document.createDocumentFragment();
         function step() {
+            /* A search or reset owns the grid now. Checked before anything is
+               touched: home.* and the button belong to whoever claimed it. */
+            if (gen !== homeGen) return;
             if (want <= 0 || home.si >= home.shards.length) {
-                more.disabled = false; home.busy = false;
-                if (gen !== homeGen) return;     // a search or reset owns the grid
                 var firstNew = frag.firstChild;
                 grid.appendChild(frag);
                 more.hidden = home.si >= home.shards.length;
@@ -236,6 +243,7 @@
             var n = home.shards[home.si];
             return Promise.all([shard(n), cindex(n).catch(function () { return null; })])
                 .then(function (r) {
+                    if (gen !== homeGen) return;
                     var rows = r[0], ci = r[1];
                     var end = rows.length - home.off;
                     var start = Math.max(0, end - want);
@@ -245,10 +253,11 @@
                     if (start === 0) { home.si++; home.off = 0; }
                     return step();
                 }, function (e) {
+                    if (gen !== homeGen) return;
                     /* Keep what was already collected and do NOT leave the cursor
                        past the shards that succeeded - discarding frag here made
                        those events unreachable with nothing to show it. */
-                    if (gen === homeGen) grid.appendChild(frag);
+                    grid.appendChild(frag);
                     status.textContent = 'Could not load part of the archive. ' + e.message;
                     more.hidden = false;
                     more.disabled = false; home.busy = false;
@@ -272,7 +281,9 @@
 
     /* --------------------------------------------------------- search */
     var searchTimer = null, lastQuery = '';
-    function norm(s) { return s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, ''); }
+    /* A row's name can be missing (tile() already allows for it), and a
+       missing one must not end the search. */
+    function norm(s) { return String(s == null ? '' : s).toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, ''); }
     function runSearch() {
         var text = q.value.trim(), year = yearSel.value;
         var key = text + ' ' + year;
@@ -284,6 +295,10 @@
         history.replaceState(null, '', text || year ? '/?q=' + encodeURIComponent(text) + (year ? '&y=' + year : '') : '/');
         if (!text && !year) { status.textContent = ''; return homeReset(); }
         searchIndex().then(function (rows) {
+            /* The box changed while the index was loading: this result answers
+               a question nobody is asking any more, and drawing it would wipe
+               the home grid (or a newer search) that now owns the page. */
+            if (key !== lastQuery) return;
             var hits;
             if (/^\d+$/.test(text) && !year) {
                 var id = Number(text);
@@ -306,7 +321,12 @@
                 }
             }
             renderHits(hits, text, year);
-        }).catch(function () { /* status already set */ });
+        }).catch(function (e) {
+            /* searchIndex() has already said when the index did not load; any
+               other failure gets a sentence too, rather than a page that
+               silently shows the previous results. */
+            if (searchP && key === lastQuery) status.textContent = 'The search could not be completed. ' + (e && e.message ? e.message : '');
+        });
     }
     var renderGen = 0;
     function renderHits(hits, text, year) {
