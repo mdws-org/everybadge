@@ -14,9 +14,9 @@ Every file is addressed by its hash and listed in a public registry, so any copy
 
 The archive is on IPFS. These roots are the whole of it:
 
-- artwork - `bafybeickz3h6wnxdwsxeoixj3pxk24fnczqeymuqh7h7xge7iaownd4b3i`
-- metadata - `bafybeiglmxn6ta7bt76p5ed6mnmek4m4uvmftonxjqe6zemp6j73qzwwuu`
-- thumbnails - `bafybeia3q5zqbjdhzdmdny3vzoc6gddjn4tsi22p6jd2lsx3rcm362gin4`
+- artwork - `bafybeiccw6agfdwyezhaossnesw2ftzsycf3d6tljgkh4qdxy547twzi5y`
+- metadata - `bafybeif5yj2ywl3eci7dvsvisvqybjjglgujrkvofh2i4u4wasvslktnoe`
+- thumbnails - `bafybeidyhc2wvzhuvvcvzvsm5cca3jdj32ev4aejaveav4bxvmeddmucke`
 - animated re-encodes - `bafybeibwodt254seymig7cbemxwgj4e5lztui3ccz6ypboafyl5i2ptn4a`
 
 If you run IPFS, pinning the metadata root is the single most useful thing you can do. It is 145 MB and it is the copy that does not depend on anyone's server staying up.
