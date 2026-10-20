@@ -29,6 +29,8 @@ All the heavy bytes live behind `https://data.everybadge.org` (an R2 bucket, sam
 
 Deployed as a Cloudflare Worker with static assets (`wrangler.jsonc`, `worker.js`), with Netlify as a second host from the same repo (`netlify.toml`). `_headers` carries a strict CSP.
 
+`scripts/build-ipfs.py OUT_DIR` assembles the copy of the site for IPFS: the shell, with the CSP from `_headers` as a meta tag and a `_redirects` file for `/event/<id>`, plus a gzipped snapshot of the index and cindex, each index file checked against the manifest's sha256. That copy reads the data host first and falls back to its own snapshot, so it still browses and searches with the data host gone. The same commit and manifest give the same CID: `--cid` prints it, and `--add-flags` prints the `ipfs add` flags that make it so.
+
 Local development: `python3 ~/Projects/everybadge-build/devserve.py` serves the shell against a local copy of the index.
 
 ## Two things the data will tell you that look like bugs

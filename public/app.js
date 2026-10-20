@@ -41,9 +41,12 @@
  * Fallback: if DATA does not answer for a thumbnail, animation or metadata
  * file, the same path is tried under the IPFS roots through public gateways.
  * That is the point of content addressing - the site is a convenience over an
- * archive that exists without it. Only cindex and the index files (browse,
- * search, desc) have no IPFS twin: they are lookup structures, and the roots
- * printed on the page are enough to rebuild them.
+ * archive that exists without it. cindex and the index files (browse, search,
+ * desc) have no twin under the corpus roots: they are lookup structures, and
+ * the roots printed on the page are enough to rebuild them. The copy of this
+ * site published on IPFS (scripts/build-ipfs.py) carries its own gzipped
+ * snapshot of them instead, named by data-bundle on this script's tag, and
+ * reads it whenever DATA fails.
  */
 (function () {
     'use strict';
@@ -55,6 +58,9 @@
        'self') and a CSP regression cannot hide behind the dev server. */
     var DATA = (document.currentScript && document.currentScript.dataset.data) || 'https://data.everybadge.org';
     var V = DATA + '/v1';                // versioned JSON tiers; thumbnails stay at DATA
+    /* Set only on the IPFS build: the path, on this page's own origin, of the
+       snapshot of v1/index and v1/cindex that travels inside the build. */
+    var BUNDLE = (document.currentScript && document.currentScript.dataset.bundle) || '';
     var SHARD = 1000;
     var PAGE = 60;                       // tiles per "page" of the home grid
     var CAP = 600;                       // most tiles one search draws
@@ -64,13 +70,14 @@
         blob:  'bafybeiccw6agfdwyezhaossnesw2ftzsycf3d6tljgkh4qdxy547twzi5y',
         anim:  'bafybeibwodt254seymig7cbemxwgj4e5lztui3ccz6ypboafyl5i2ptn4a',
     };
-    /* Public gateways that answer a BROWSER. Tested 2026-08-18: ipfs.io,
-       dweb.link, gateway.ipfs.io, w3s.link and nftstorage.link all return 403
-       to a browser User-Agent (200 to curl - a bot rule, not a pinning
-       problem), and cloudflare-ipfs.com is gone. These two return 200 with
-       ACAO:* from a page. Re-test before adding or reordering; gateway rules
+    /* IPFS gateways, tried in order; the same list poap-saver uses. vps3.mdws.me
+       is the project's own gateway and serves only the pinned corpus roots.
+       Measured 2026-10-20 on a metadata path: Filebase 200, Pinata slow or
+       timing out, 4everland redirects to a subdomain gateway that does not
+       connect, ipfs.io and dweb.link refuse scripted and browser requests
+       alike (403/429). Re-test before adding or reordering; gateway rules
        change without notice. */
-    var GATEWAYS = ['https://gateway.pinata.cloud/ipfs/', 'https://4everland.io/ipfs/'];
+    var GATEWAYS = ['https://vps3.mdws.me/ipfs/', 'https://ipfs.filebase.io/ipfs/', 'https://gateway.pinata.cloud/ipfs/'];
     var EXT = { p: 'png', g: 'gif', j: 'jpg', w: 'webp' };
     /* A cindex entry is [sha256, typeCode], read from the data host. Both go
        into URLs and the page, so neither is trusted as given: a sha must be
@@ -88,22 +95,56 @@
 
     /* --------------------------------------------------------- data access */
     var cache = {};                       // url -> Promise<any>
-    function getJSON(url) {
+    /* wait (ms), when given, bounds the time to the response headers only: a
+       host that hangs gives up, a slow download of search.json does not. */
+    function getJSON(url, wait) {
         if (!cache[url]) {
-            cache[url] = fetch(url).then(function (r) {
+            var ctl = wait && typeof AbortController === 'function' ? new AbortController() : null;
+            var timer = ctl ? setTimeout(function () { ctl.abort(); }, wait) : 0;
+            cache[url] = fetch(url, ctl ? { signal: ctl.signal } : undefined).then(function (r) {
+                clearTimeout(timer);
                 if (!r.ok) throw new Error(r.status + ' ' + url);
                 return r.json();
+            }, function (e) {
+                clearTimeout(timer);
+                throw e;
             });
             cache[url].catch(function () { delete cache[url]; });
         }
         return cache[url];
     }
-    function shard(n)  { return getJSON(V + '/index/browse/' + n + '.json'); }
-    function cindex(n) { return getJSON(V + '/cindex/' + n + '.json'); }
+    /* The build's own snapshot of a file: <BUNDLE><path>.gz, inflated here
+       because a gateway serves it as a plain .gz with no Content-Encoding. */
+    function getBundled(path) {
+        var url = BUNDLE + path + '.gz';
+        if (!cache[url]) {
+            cache[url] = fetch(url).then(function (r) {
+                if (!r.ok) throw new Error(r.status + ' ' + url);
+                return new Response(r.body.pipeThrough(new DecompressionStream('gzip'))).json();
+            });
+            cache[url].catch(function () { delete cache[url]; });
+        }
+        return cache[url];
+    }
+    /* An index or cindex file (path under v1/): DATA first, then the bundled
+       snapshot when this page is the IPFS build and DATA did not answer. After
+       one miss the rest of the visit reads the snapshot directly, so a hanging
+       host costs one wait, not one per shard. */
+    var dataDown = false;
+    function getTier(path) {
+        if (!BUNDLE) return getJSON(V + path);
+        if (dataDown) return getBundled(path);
+        return getJSON(V + path, 10000).catch(function () {
+            dataDown = true;
+            return getBundled(path);
+        });
+    }
+    function shard(n)  { return getTier('/index/browse/' + n + '.json'); }
+    function cindex(n) { return getTier('/cindex/' + n + '.json'); }
     /* A function, not a captured promise. getJSON drops a rejected promise so a
        retry can succeed, but holding one in a module-level variable defeats that:
        a single transient failure at load would reject every later use forever. */
-    function manifest() { return getJSON(V + '/index/manifest.json'); }
+    function manifest() { return getTier('/index/manifest.json'); }
     /* The manifest once it has arrived, for the place tables tile() reads;
        null until then. */
     var M = null;
@@ -112,12 +153,12 @@
         fillYears(m.years);
         fillCountries(m);
     }
-    function descShard(key) { return getJSON(V + '/index/desc/' + key + '.json'); }
+    function descShard(key) { return getTier('/index/desc/' + key + '.json'); }
     var searchP = null;                   // loaded on first keystroke, not on page load
     function searchIndex() {
         if (!searchP) {
             status.textContent = 'Loading the full index (about 3 MB, once)…';
-            searchP = getJSON(V + '/index/search.json').then(function (rows) {
+            searchP = getTier('/index/search.json').then(function (rows) {
                 status.textContent = '';
                 return rows;
             }, function (e) {
