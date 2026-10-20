@@ -59,9 +59,9 @@
     var PAGE = 60;                       // tiles per "page" of the home grid
     var CAP = 600;                       // most tiles one search draws
     var ROOTS = {
-        meta:  'bafybeiglmxn6ta7bt76p5ed6mnmek4m4uvmftonxjqe6zemp6j73qzwwuu',
-        thumb: 'bafybeia3q5zqbjdhzdmdny3vzoc6gddjn4tsi22p6jd2lsx3rcm362gin4',
-        blob:  'bafybeickz3h6wnxdwsxeoixj3pxk24fnczqeymuqh7h7xge7iaownd4b3i',
+        meta:  'bafybeif5yj2ywl3eci7dvsvisvqybjjglgujrkvofh2i4u4wasvslktnoe',
+        thumb: 'bafybeidyhc2wvzhuvvcvzvsm5cca3jdj32ev4aejaveav4bxvmeddmucke',
+        blob:  'bafybeiccw6agfdwyezhaossnesw2ftzsycf3d6tljgkh4qdxy547twzi5y',
         anim:  'bafybeibwodt254seymig7cbemxwgj4e5lztui3ccz6ypboafyl5i2ptn4a',
     };
     /* Public gateways that answer a BROWSER. Tested 2026-08-18: ipfs.io,

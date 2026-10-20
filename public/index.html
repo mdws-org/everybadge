@@ -85,9 +85,9 @@
   <section id="mirror" class="prose">
     <h2>Mirror it</h2>
     <p>The archive is on IPFS. These four roots are the whole of it. If only this page survives, they are enough to recover everything:</p>
-    <pre class="roots">metadata     bafybeiglmxn6ta7bt76p5ed6mnmek4m4uvmftonxjqe6zemp6j73qzwwuu   145 MB
-artwork      bafybeickz3h6wnxdwsxeoixj3pxk24fnczqeymuqh7h7xge7iaownd4b3i   194 GB
-thumbnails   bafybeia3q5zqbjdhzdmdny3vzoc6gddjn4tsi22p6jd2lsx3rcm362gin4   4.4 GB
+    <pre class="roots">metadata     bafybeif5yj2ywl3eci7dvsvisvqybjjglgujrkvofh2i4u4wasvslktnoe   145 MB
+artwork      bafybeiccw6agfdwyezhaossnesw2ftzsycf3d6tljgkh4qdxy547twzi5y   194 GB
+thumbnails   bafybeidyhc2wvzhuvvcvzvsm5cca3jdj32ev4aejaveav4bxvmeddmucke   4.4 GB
 animations   bafybeibwodt254seymig7cbemxwgj4e5lztui3ccz6ypboafyl5i2ptn4a   47 MB</pre>
     <p>With <a href="https://docs.ipfs.tech/install/">kubo</a> installed and <code>ipfs daemon</code> running, <code>ipfs pin add &lt;root&gt;</code> fetches and keeps a copy. Pinning the metadata root is the single most useful thing you can do: it is 145 MB and it is the part that cannot be rebuilt from anything else. A hash proves a file is unaltered, but it will not tell you what the event was called.</p>
     <p>The full registry - every event id, its artwork hash and content type - is in <a href="https://github.com/mdws-org/poap-saver/tree/main/registry/corpus">mdws-org/poap-saver</a>. This site's own source is <a href="https://github.com/mdws-org/everybadge">mdws-org/everybadge</a>.</p>
