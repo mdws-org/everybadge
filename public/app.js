@@ -95,19 +95,26 @@
 
     /* --------------------------------------------------------- data access */
     var cache = {};                       // url -> Promise<any>
-    /* wait (ms), when given, bounds the time to the response headers only: a
-       host that hangs gives up, a slow download of search.json does not. */
+    /* fetch that gives up when the response headers have not arrived within
+       wait ms: a host that hangs is abandoned, a slow download of search.json
+       is not. No limit when wait is 0 or AbortController is missing. */
+    function fetchWithin(url, wait) {
+        if (!wait || typeof AbortController !== 'function') return fetch(url);
+        var ctl = new AbortController();
+        var timer = setTimeout(function () { ctl.abort(); }, wait);
+        return fetch(url, { signal: ctl.signal }).then(function (r) {
+            clearTimeout(timer);
+            return r;
+        }, function (e) {
+            clearTimeout(timer);
+            throw e;
+        });
+    }
     function getJSON(url, wait) {
         if (!cache[url]) {
-            var ctl = wait && typeof AbortController === 'function' ? new AbortController() : null;
-            var timer = ctl ? setTimeout(function () { ctl.abort(); }, wait) : 0;
-            cache[url] = fetch(url, ctl ? { signal: ctl.signal } : undefined).then(function (r) {
-                clearTimeout(timer);
+            cache[url] = fetchWithin(url, wait).then(function (r) {
                 if (!r.ok) throw new Error(r.status + ' ' + url);
                 return r.json();
-            }, function (e) {
-                clearTimeout(timer);
-                throw e;
             });
             cache[url].catch(function () { delete cache[url]; });
         }
@@ -180,9 +187,12 @@
        and "no such event" (404 from DATA) is not retried anywhere - a gap is a
        gap. Resolves to {meta, via}: `via` is the gateway that answered, or null
        when DATA did, because a gateway's copy is shown unchecked and the page
-       says so. */
+       says so. The event page waits for this before it shows anything, so each
+       source gets a bounded wait: a gateway that hangs (a busy node can sit a
+       minute before its 504) costs seconds, not the page. */
+    var META_WAIT = 10000, GATEWAY_WAIT = 8000;
     function getMeta(id) {
-        return fetch(metaURL(id)).then(function (r) {
+        return fetchWithin(metaURL(id), META_WAIT).then(function (r) {
             if (r.status === 404) return { meta: null, via: null };
             if (!r.ok) throw new Error(r.status);
             return r.json().then(function (meta) { return { meta: meta, via: null }; });
@@ -191,7 +201,7 @@
             function next() {
                 if (i >= GATEWAYS.length) throw new Error('unreachable');
                 var gateway = GATEWAYS[i];
-                return fetch(metaIPFS(id, i++)).then(function (r) {
+                return fetchWithin(metaIPFS(id, i++), GATEWAY_WAIT).then(function (r) {
                     if (!r.ok) return next();
                     return r.json().then(function (meta) { return { meta: meta, via: gateway }; });
                 }, next);
