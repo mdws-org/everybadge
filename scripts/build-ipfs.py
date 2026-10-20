@@ -16,9 +16,11 @@ OUT_DIR must not exist yet. It receives:
   data/v1/cindex/<n>.json.gz  one per browse shard
   build.json                  the commit and the manifest sha256 the build came from
 
-Same inputs give the same bytes: gzip runs with mtime 0 at level 9 and nothing
-records the build time, so `ipfs add` with the flags from --add-flags gives the
-same CID on any machine with the same zlib. --cid prints that CID without adding
+Same inputs give the same bytes: gzip members carry a fixed header (mtime 0,
+no platform byte) around level-9 deflate and nothing records the build time, so
+`ipfs add` with the flags from --add-flags gives the same CID on any machine
+whose zlib deflates the same way (checked: 1.2.12 on macOS and 1.3 on Ubuntu
+24.04 agree). --cid prints that CID without adding
 anything (needs kubo). Stdlib only; runs on Python 3.9+.
 """
 import argparse
@@ -28,10 +30,12 @@ import json
 import pathlib
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import time
 import urllib.request
+import zlib
 from concurrent.futures import ThreadPoolExecutor
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
@@ -55,9 +59,22 @@ def fetch(url, attempts=3):
             time.sleep(2 * (i + 1))
 
 
+def gzip_bytes(data):
+    """A gzip member with a fixed header: mtime 0, XFL 2, OS 255 (unknown).
+    gzip.compress takes the OS byte from the platform (03 on Linux, ff on
+    macOS), which alone made two otherwise identical builds differ."""
+    deflate = zlib.compressobj(9, zlib.DEFLATED, -zlib.MAX_WBITS)
+    body = deflate.compress(data) + deflate.flush()
+    trailer = struct.pack("<II", zlib.crc32(data) & 0xFFFFFFFF, len(data) & 0xFFFFFFFF)
+    return b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\xff" + body + trailer
+
+
 def write_gz(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(gzip.compress(data, compresslevel=9, mtime=0))
+    blob = gzip_bytes(data)
+    if gzip.decompress(blob) != data:
+        raise RuntimeError(f"{path}: gzip round trip failed")
+    path.write_bytes(blob)
 
 
 def header_csp():
