@@ -43,7 +43,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospac
   border-bottom: 1px solid var(--line);
   font-size: .9rem;
 }
-.foot { border-bottom: 0; border-top: 1px solid var(--line); color: var(--mute); margin-top: 3rem; }
+.foot { border-bottom: 0; border-top: 1px solid var(--line); color: var(--mute); margin-top: 3rem; flex-direction: column; gap: .5rem; }
 .brand { color: var(--fg); font-weight: 600; letter-spacing: -.01em; }
 .head nav a { margin-left: 1rem; color: var(--mute); }
 .head nav a, #back { position: relative; }
