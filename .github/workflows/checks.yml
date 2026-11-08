@@ -16,6 +16,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # Renders public/ in the runner's preinstalled Chrome and fails on prose past
+      # 75 characters a line, under 16px, or justified on a phone.
+      - name: Line length and body size (check-measure)
+        run: |
+          npm ci --prefix tools --ignore-scripts
+          node tools/check-measure.mjs public > measure.txt
+          cat measure.txt
+          [ ! -s measure.txt ]
+
       - name: css-touch-lint (hover, focus ring, :invalid, Tailwind flag, input size)
         run: python3 scripts/css-touch-lint.py
       - name: gitleaks (secrets in the pushed commits)
