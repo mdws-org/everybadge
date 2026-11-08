@@ -52,8 +52,8 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospac
 main { max-width: 72rem; margin: 0 auto; padding: 1.5rem 1.25rem 2rem; }
 h1 { font-size: 1.75rem; line-height: 1.2; letter-spacing: -.02em; margin: .5rem 0 .75rem; }
 h2 { font-size: 1.2rem; margin: 2.5rem 0 .5rem; }
-.lede { color: var(--mute); max-width: 44rem; margin: 0 0 1.5rem; }
-.prose { max-width: 44rem; }
+.lede { color: var(--mute); max-width: 36rem; margin: 0 0 1.5rem; }
+.prose { max-width: 36rem; }
 .prose p { margin: .6rem 0; }
 .roots { overflow-x: auto; padding: .75rem 1rem; background: var(--tile); border-radius: 4px; font-size: .8rem; line-height: 1.6; }
 
