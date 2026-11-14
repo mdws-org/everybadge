@@ -115,15 +115,11 @@ button:active { border-color: var(--mute); }
 }
 
 /* Nothing moves while the page fills in.
-   The Worker serves /event/<id> with class "ev" on <html>, so the event layout
-   is what first paints (app.js keeps the class in step when a reader moves
-   between views). Each view fills the first screen, so the text under it
-   starts below the fold; the artwork box is square before its image arrives
-   (a taller image is fitted inside it), and the title and each fact hold
-   their lines before their text does. */
-html.ev #home, html.ev #about, html.ev #mirror { display: none; }
-/* !important because [hidden] above is !important and #event starts hidden. */
-html.ev #event { display: block !important; }
+   The Worker serves /event/<id> with the event view already unhidden, so the
+   event layout is what first paints. Each view fills the first screen, so the
+   text under it starts below the fold; the artwork box is square before its
+   image arrives (a taller image is fitted inside it), and the title and each
+   fact hold their lines before their text does. */
 #home, #event { min-height: 100svh; }
 .art { aspect-ratio: 1 / 1; grid-template-rows: minmax(0, 1fr); }
 .facts h1 { min-height: 1.2em; }

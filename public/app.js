@@ -929,7 +929,6 @@
         animated();
     }
     function showEvent(id) {
-        document.documentElement.classList.add('ev');   // style.css: event layout
         $('home').hidden = true;
         $('about').hidden = true;
         $('mirror').hidden = true;
@@ -1062,7 +1061,6 @@
     }
     function showHome() {
         var wasEvent = !$('event').hidden;
-        document.documentElement.classList.remove('ev');
         $('event').hidden = true;
         $('home').hidden = false;
         $('about').hidden = false;

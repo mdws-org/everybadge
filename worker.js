@@ -3,8 +3,9 @@
  * Static assets are served ahead of this script for any path that matches a
  * file. This runs only for misses, and does exactly one thing: /event/<id> is
  * a real, shareable, archivable URL that has no file behind it, so it gets
- * index.html (status 200, with class "ev" on <html> so the event layout
- * shows before the script runs) and app.js reads the id from the path. Everything
+ * index.html (status 200, with the event view unhidden and the home views
+ * hidden, so the event layout shows before the script runs) and app.js reads
+ * the id from the path. Everything
  * else that misses is a real 404 - not_found_handling is "404-page", not
  * "single-page-application", because an archive that answers 200 to
  * /anything-at-all is lying about what it holds.
@@ -18,11 +19,14 @@ export default {
         if (/^\/event\/\d{1,7}\/?$/.test(url.pathname)) {
             // Rewrite, not redirect: the address bar keeps /event/<id>.
             const page = await env.ASSETS.fetch(new URL('/', url));
-            // Mark the shell as an event page so style.css shows the event
-            // layout from the first paint, instead of the home view until
-            // app.js swaps it. No data is read here.
+            // Send the shell with the event view already showing: the same
+            // hidden attributes app.js sets in showEvent(), so the page does
+            // not paint the home view first and then swap. Attributes, not a
+            // class, because every cached copy of app.js and style.css
+            // already understands them. No data is read here.
             const shell = new HTMLRewriter()
-                .on('html', { element(el) { el.setAttribute('class', 'ev'); } })
+                .on('#home, #about, #mirror', { element(el) { el.setAttribute('hidden', ''); } })
+                .on('#event', { element(el) { el.removeAttribute('hidden'); } })
                 .transform(page);
             return new Response(shell.body, {
                 status: 200,

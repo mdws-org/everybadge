@@ -16,7 +16,7 @@
 // host are answered from tools/fixtures/ (recorded copies of the manifest, two
 // index shards and one event), 300ms late, and every image with a 1px PNG;
 // nothing leaves the machine. /event/<id> is served the way worker.js serves
-// it: the shell with class "ev" on <html>.
+// it: the shell with the event view unhidden and the home views hidden.
 //
 // Prose is the lede and the about and mirror sections. Badge cards, filters
 // and the status line are interface text and are not measured. The same rules
@@ -37,6 +37,16 @@ const { checkLayoutShift } = await import(new URL("./layout-shift.mjs", import.m
 const FIXTURES = new URL("./fixtures/", import.meta.url);
 const PIXEL = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64");
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// What worker.js does to the shell for /event/<id>: the event view unhidden,
+// the home views hidden. Throws if the shell's markup no longer matches.
+function asEvent(html) {
+    let n = 0;
+    const out = html
+        .replace(/<section id="(home|about|mirror)"/g, (m) => (n++, m + " hidden"))
+        .replace('<section id="event" hidden>', () => (n++, '<section id="event">'));
+    if (n !== 4) throw new Error(`asEvent: expected 4 section edits, made ${n}`);
+    return out;
+}
 // Stands in for the data host and the IPFS gateways.
 const stubData = (ctx) => ctx.route((url) => url.hostname !== "127.0.0.1", async (route) => {
     const url = new URL(route.request().url());
@@ -72,7 +82,7 @@ const server = createServer((req, res) => {
     if (p.startsWith("/media/")) { res.writeHead(404); return res.end(); }
     let body;
     try { body = readFileSync(join(SITE, p)); } catch { res.writeHead(404); return res.end(); }
-    if (event) body = body.toString().replace('<html lang="en">', '<html lang="en" class="ev">');
+    if (event) body = asEvent(body.toString());
     // The script arrives after the first paint on a real connection; without
     // the wait the page is never seen in its before-script state.
     setTimeout(() => {
