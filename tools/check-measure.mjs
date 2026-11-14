@@ -7,7 +7,16 @@
 //                     average line passes 85;
 //   phone (390px):    no prose is justified (this site is flush left at every width);
 //   Safari (WebKit):  any justified prose keeps its word spaces even
-//                     (webkit-gaps.mjs; nothing here is justified today).
+//                     (webkit-gaps.mjs; nothing here is justified today);
+//   both widths:      nothing moves after it appears: layout shift of 0.1 or
+//                     less on the home page and an event page
+//                     (layout-shift.mjs).
+//
+// For the layout-shift pass the pages need their data. Requests to the data
+// host are answered from tools/fixtures/ (recorded copies of the manifest, two
+// index shards and one event), 300ms late, and every image with a 1px PNG;
+// nothing leaves the machine. /event/<id> is served the way worker.js serves
+// it: the shell with class "ev" on <html>.
 //
 // Prose is the lede and the about and mirror sections. Badge cards, filters
 // and the status line are interface text and are not measured. The same rules
@@ -24,6 +33,20 @@ import { extname, join } from "node:path";
 const require = createRequire(new URL("./package.json", import.meta.url));
 const { chromium, webkit } = require("playwright-core");
 const { checkWebkitGaps } = await import(new URL("./webkit-gaps.mjs", import.meta.url));
+const { checkLayoutShift } = await import(new URL("./layout-shift.mjs", import.meta.url));
+const FIXTURES = new URL("./fixtures/", import.meta.url);
+const PIXEL = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64");
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// Stands in for the data host and the IPFS gateways.
+const stubData = (ctx) => ctx.route((url) => url.hostname !== "127.0.0.1", async (route) => {
+    const url = new URL(route.request().url());
+    await wait(300);
+    if (route.request().resourceType() === "image") return route.fulfill({ contentType: "image/png", body: PIXEL });
+    try {
+        return route.fulfill({ contentType: "application/json", headers: { "access-control-allow-origin": "*" },
+            body: readFileSync(new URL("." + url.pathname, FIXTURES)) });
+    } catch { return route.fulfill({ status: 404, headers: { "access-control-allow-origin": "*" }, body: "" }); }
+});
 
 const SITE = process.argv[2] || "public";
 const MEDIAN_MAX = 75, LINE_MAX = 85, BODY_MIN = 16;
@@ -42,13 +65,20 @@ const TYPES = { ".html": "text/html", ".css": "text/css", ".js": "text/javascrip
     ".svg": "image/svg+xml", ".woff2": "font/woff2" };
 const server = createServer((req, res) => {
     let p = decodeURIComponent(new URL(req.url, "http://x").pathname);
+    const event = /^\/event\/\d{1,7}\/?$/.test(p);
+    if (event) p = "/index.html";
     if (p.endsWith("/")) p += "index.html";
     // Media is not needed to measure type; answering 404 keeps the run fast.
     if (p.startsWith("/media/")) { res.writeHead(404); return res.end(); }
     let body;
     try { body = readFileSync(join(SITE, p)); } catch { res.writeHead(404); return res.end(); }
-    res.writeHead(200, { "content-type": TYPES[extname(p)] || "application/octet-stream" });
-    res.end(body);
+    if (event) body = body.toString().replace('<html lang="en">', '<html lang="en" class="ev">');
+    // The script arrives after the first paint on a real connection; without
+    // the wait the page is never seen in its before-script state.
+    setTimeout(() => {
+        res.writeHead(200, { "content-type": TYPES[extname(p)] || "application/octet-stream" });
+        res.end(body);
+    }, extname(p) === ".js" ? 300 : 0);
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const origin = `http://127.0.0.1:${server.address().port}/`;
@@ -88,6 +118,7 @@ try {
         }
         await ctx.close();
     }
+    problems.push(...await checkLayoutShift(browser, origin, ["", "event/1"], stubData));
     problems.push(...await checkWebkitGaps(webkit, origin, sample, PROSE));
 } finally {
     await browser.close();
