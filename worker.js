@@ -24,9 +24,15 @@ export default {
             // not paint the home view first and then swap. Attributes, not a
             // class, because every cached copy of app.js and style.css
             // already understands them. No data is read here.
+            // The shell's canonical and og:url name the home page; an event
+            // page names itself, or search engines file every event as a copy
+            // of the home page. Always the apex, without a trailing slash.
+            const self = 'https://everybadge.org/event/' + url.pathname.match(/\d+/)[0];
             const shell = new HTMLRewriter()
                 .on('#home, #about, #mirror', { element(el) { el.setAttribute('hidden', ''); } })
                 .on('#event', { element(el) { el.removeAttribute('hidden'); } })
+                .on('link[rel="canonical"]', { element(el) { el.setAttribute('href', self); } })
+                .on('meta[property="og:url"]', { element(el) { el.setAttribute('content', self); } })
                 .transform(page);
             return new Response(shell.body, {
                 status: 200,
