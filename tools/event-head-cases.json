@@ -1,0 +1,125 @@
+{
+ "_comment": "What an /event/<id> response must carry before any script runs. Written before the Worker code; tools/event-head.mjs reads this file and never the other way round. `status`, `title`, `description`, `og_title`, `canonical` are compared exactly against the parsed HTML (entities decoded). `data: \"down\"` cases run against a Worker whose data host does not answer. Description rule (2026-11-19): name, year and place only, built from the archive's own fields; nothing organizer-written.",
+ "generic": {
+  "title": "EveryBadge - the POAP archive",
+  "description": "Every POAP event the archive captured: 197,589 events, their names, dates and artwork, browsable by anyone and stored so no single machine going away takes it down.",
+  "og_title": "EveryBadge - the POAP archive"
+ },
+ "cases": [
+  {
+   "name": "event with a city and country",
+   "path": "/event/1",
+   "status": 200,
+   "title": "DappCon - EveryBadge",
+   "og_title": "DappCon - EveryBadge",
+   "description": "DappCon, a 2018 POAP event in Berlin, Germany. Event #1 in the EveryBadge archive.",
+   "canonical": "https://everybadge.org/event/1"
+  },
+  {
+   "name": "event without a place",
+   "path": "/event/229206",
+   "status": 200,
+   "title": "Bendiciones en Cada Paso - EveryBadge",
+   "og_title": "Bendiciones en Cada Paso - EveryBadge",
+   "description": "Bendiciones en Cada Paso, a 2026 POAP event. Event #229206 in the EveryBadge archive.",
+   "canonical": "https://everybadge.org/event/229206"
+  },
+  {
+   "name": "trailing slash is the same page with the same canonical",
+   "path": "/event/1/",
+   "status": 200,
+   "title": "DappCon - EveryBadge",
+   "og_title": "DappCon - EveryBadge",
+   "description": "DappCon, a 2018 POAP event in Berlin, Germany. Event #1 in the EveryBadge archive.",
+   "canonical": "https://everybadge.org/event/1"
+  },
+  {
+   "name": "name with angle brackets stays text",
+   "path": "/event/1151",
+   "status": 200,
+   "title": "Nima <> PawnFi - EveryBadge",
+   "og_title": "Nima <> PawnFi - EveryBadge",
+   "description": "Nima <> PawnFi, a 2021 POAP event. Event #1151 in the EveryBadge archive.",
+   "canonical": "https://everybadge.org/event/1151",
+   "raw_must_not_contain": ["<title>Nima <>", "content=\"Nima <>"]
+  },
+  {
+   "name": "name with double quotes cannot break out of an attribute",
+   "path": "/event/359",
+   "status": 200,
+   "title": "DappCraft \"Moon Miner Show-Party\" - EveryBadge",
+   "og_title": "DappCraft \"Moon Miner Show-Party\" - EveryBadge",
+   "description": "DappCraft \"Moon Miner Show-Party\", a 2020 POAP event. Event #359 in the EveryBadge archive.",
+   "canonical": "https://everybadge.org/event/359",
+   "raw_must_not_contain": ["content=\"DappCraft \"Moon"]
+  },
+  {
+   "name": "name with an ampersand, and a place",
+   "path": "/event/89",
+   "status": 200,
+   "title": "Decentralized Finance & Governance - EveryBadge",
+   "og_title": "Decentralized Finance & Governance - EveryBadge",
+   "description": "Decentralized Finance & Governance, a 2019 POAP event in Christchurch, New Zealand. Event #89 in the EveryBadge archive.",
+   "canonical": "https://everybadge.org/event/89"
+  },
+  {
+   "name": "untitled event (empty name in POAP's metadata)",
+   "path": "/event/81",
+   "status": 200,
+   "title": "Event #81 - EveryBadge",
+   "og_title": "Event #81 - EveryBadge",
+   "description": "An untitled 2019 POAP event. Event #81 in the EveryBadge archive.",
+   "canonical": "https://everybadge.org/event/81"
+  },
+  {
+   "name": "untitled event whose name is a single space",
+   "path": "/event/146588",
+   "status": 200,
+   "title": "Event #146588 - EveryBadge",
+   "og_title": "Event #146588 - EveryBadge",
+   "description": "An untitled 2023 POAP event. Event #146588 in the EveryBadge archive.",
+   "canonical": "https://everybadge.org/event/146588"
+  },
+  {
+   "name": "id the archive does not hold is a real 404 with the event view",
+   "path": "/event/9999999",
+   "status": 404,
+   "title": "No event #9999999 - EveryBadge",
+   "og_title": "No event #9999999 - EveryBadge",
+   "description": "generic",
+   "canonical": "https://everybadge.org/event/9999999",
+   "event_view_showing": true
+  },
+  {
+   "name": "data host down: the page is sent as before, generic head, status 200",
+   "path": "/event/1",
+   "data": "down",
+   "status": 200,
+   "title": "generic",
+   "og_title": "generic",
+   "description": "generic",
+   "canonical": "https://everybadge.org/event/1",
+   "event_view_showing": true
+  },
+  {
+   "name": "home page is untouched",
+   "path": "/",
+   "status": 200,
+   "title": "generic",
+   "og_title": "generic",
+   "description": "generic",
+   "canonical": "https://everybadge.org/",
+   "event_view_showing": false
+  },
+  {
+   "name": "a path that is neither a file nor an event is still a 404",
+   "path": "/nope",
+   "status": 404
+  },
+  {
+   "name": "eight digits is not an event address",
+   "path": "/event/12345678",
+   "status": 404
+  }
+ ]
+}
