@@ -18,7 +18,9 @@
 // Nothing here touches the corpus. Data is served from R2 at data.everybadge.org
 // (see ~/.config/architect/tofu/everybadge-data.tf), and this Worker never
 // proxies it - the browser fetches DATA directly, and the CSP in _headers names
-// that one extra origin.
+// that one extra origin. The Worker's one read of its own is an event's
+// v1/meta/<id>.json, for the name in the page head (worker.js); a DATA variable
+// overrides the host for tools/event-head.mjs and is unset in production.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "everybadge",
