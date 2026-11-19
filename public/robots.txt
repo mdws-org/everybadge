@@ -2,3 +2,7 @@ User-agent: *
 Allow: /
 
 Sitemap: https://everybadge.org/sitemap.xml
+# Event pages, the 50,000 most-minted first (a trial, 2026-11-19). Kept on the
+# data host so this site stays small; naming it here is what lets a file on
+# another host list this site's pages.
+Sitemap: https://data.everybadge.org/sitemap/events-1.xml
