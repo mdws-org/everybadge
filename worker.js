@@ -15,6 +15,15 @@
  * out as the plain shell with status 200: a visitor must never get an error
  * here because a lookup was slow.
  *
+ * "In time" depends on who is asking. A read the edge has not cached costs
+ * 0.3 to 0.4 s, and a person does not need it: app.js sets the title a moment
+ * later anyway. So a person is given a short deadline, after which the page
+ * goes out without the name and the read finishes in the background (it is
+ * then cached for app.js, which asks for the same file). A search engine or a
+ * link-preview fetcher reads only what is in this response, so it gets the
+ * full wait. Both end up with the same page; only when the name appears
+ * differs. The response says so with Vary: User-Agent.
+ *
  * Everything else that misses is a real 404 - not_found_handling is
  * "404-page", not "single-page-application", because an archive that answers
  * 200 to /anything-at-all is lying about what it holds.
@@ -24,9 +33,24 @@
  */
 const DATA = 'https://data.everybadge.org';
 const ORIGIN = 'https://everybadge.org';
-// Longer than a cold read of the data host takes, short enough that a visitor
-// does not notice when it never comes.
+// The most a read may take, for anyone. Longer than a cold read of the data
+// host, short enough that a crawler is not held when it never comes.
 const META_TIMEOUT_MS = 1500;
+// How long a person is kept waiting for the name. A read the edge has cached
+// answers in about 10 ms and one it has not takes about 300 (measured
+// 2026-11-19), so this lets the first through and never waits for the second.
+const VISITOR_DEADLINE_MS = 75;
+// Who reads the head of this response and nothing else: search engines, and
+// the fetchers that build a preview when a link is pasted somewhere. Matched
+// on the token each documents for its user agent. iMessage sends
+// "facebookexternalhit ... Twitterbot". Anything not listed is a person.
+const HEAD_READERS = new RegExp(
+    [
+        'Googlebot', 'Google-InspectionTool', 'bingbot', 'DuckDuckBot', 'Kagibot', 'Applebot', 'YandexBot', 'Baiduspider',
+        'Twitterbot', 'facebookexternalhit', 'Slackbot', 'Discordbot', 'TelegramBot', 'WhatsApp', 'LinkedInBot',
+    ].join('|'),
+    'i',
+);
 
 /* What the archive says about one event: { name, year, city, country } when it
    holds it, { missing: true } when it does not, null when the data host did
@@ -76,14 +100,23 @@ function eventHead(id, facts) {
 }
 
 export default {
-    async fetch(request, env) {
+    async fetch(request, env, ctx) {
         const url = new URL(request.url);
         const match = /^\/event\/(\d{1,7})\/?$/.exec(url.pathname);
         if (!match) return env.ASSETS.fetch(request);
 
         const id = match[1];
+        const reading = eventFacts(id, env);
+        let waited = reading;
+        if (!HEAD_READERS.test(request.headers.get('User-Agent') || '')) {
+            // A person: take the answer if it is here by the deadline, otherwise
+            // go on without it and let the read run to its end.
+            const deadline = new Promise((resolve) => setTimeout(resolve, VISITOR_DEADLINE_MS, null));
+            waited = Promise.race([reading, deadline]);
+            ctx.waitUntil(reading);
+        }
         // Rewrite, not redirect: the address bar keeps /event/<id>.
-        const [page, facts] = await Promise.all([env.ASSETS.fetch(new URL('/', url)), eventFacts(id, env)]);
+        const [page, facts] = await Promise.all([env.ASSETS.fetch(new URL('/', url)), waited]);
         // Always the apex, without a trailing slash.
         const self = `${ORIGIN}/event/${id}`;
         // Send the shell with the event view already showing: the same hidden
@@ -116,9 +149,11 @@ export default {
                     .on('meta[property="og:description"]', meta('property', 'og:description', head.description));
             }
         }
+        const headers = new Headers(page.headers);
+        headers.append('Vary', 'User-Agent');
         return new Response(shell.transform(page).body, {
             status: facts && facts.missing ? 404 : 200,
-            headers: page.headers,
+            headers,
         });
     },
 };
