@@ -970,7 +970,7 @@
             if (!row && meta === null) {
                 $('ev-name').textContent = 'No event #' + id + ' in the archive';
                 focusTo($('ev-name'));
-                $('ev-desc').textContent = 'Either it never existed or POAP never stored anything for it. The archive covers ids 1 to 229,341, and 31,752 ids inside that range are gaps like this one.';
+                $('ev-desc').textContent = 'Either it never existed or POAP never stored anything for it. The archive covers ids 1 to 229,385, and 31,779 ids inside that range are gaps like this one.';
                 ['ev-year', 'ev-dates', 'ev-place', 'ev-mints', 'ev-art', 'ev-links', 'ev-source'].forEach(function (k) {
                     var dd = $(k), dt = dd.previousElementSibling;
                     dd.hidden = true; if (dt) dt.hidden = true;
