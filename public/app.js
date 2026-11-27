@@ -20,6 +20,8 @@
  *                             era, `unknown` for none. Read only by the
  *                             description search
  *   v1/cindex/<n>.json        {"<id>": [sha256, typeCode], ...} same shard bounds
+ *   v1/short/<n>.json         {"<id>": [shorter names, longest first]} for
+ *                             names over 40 characters; optional, same bounds
  *   v1/meta/<id>.json         the metadata POAP served for the event
  *   thumb/<xx>/<sha>.webp     400px thumbnail; xx = first two hex of sha
  *   anim/<id>.<ext>           animated re-encode; ext (mp4 or webp) from
@@ -256,6 +258,63 @@
         var city = row[5] >= 0 ? M.cities[row[5]] : '', country = row[4] >= 0 ? M.countries[row[4]] : '';
         return [city, country].filter(Boolean).join(', ');
     }
+    /* Shorter versions of long names, v1/short/<n>.json {"<id>": [longest, ...,
+       shortest]}, same shard bounds as browse. Each version only deletes words
+       from the name and keeps every number; a validator checked them when they
+       were written. A tile shows the longest version that wraps into its two
+       lines, so the name loses its least informative words instead of being
+       cut off mid-word. A missing shard leaves the name as it was. */
+    var SHORT_MIN = 40;
+    function shortShard(n) { return getTier('/short/' + n + '.json').catch(function () { return null; }); }
+    function shortName(nm, id, name) {
+        shortShard(Math.floor(id / SHARD)).then(function (s) {
+            var v = s && s[String(id)];
+            if (!v || !v.length) return;
+            nm.setAttribute('data-v', JSON.stringify([name.split(/\s+/).filter(Boolean).join(' ')].concat(v)));
+            fitSoon();
+        });
+    }
+    var FIT = document.createElement('canvas').getContext('2d');
+    var STILL = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    function lineCount(text, w) {
+        var words = text.split(' '), sp = FIT.measureText(' ').width, n = 1, cur = 0;
+        for (var k = 0; k < words.length; k++) {
+            var ww = FIT.measureText(words[k]).width;
+            if (ww > w) {   // overflow-wrap: anywhere breaks a word wider than the tile
+                n += Math.ceil((cur ? cur + sp + ww : ww) / w) - 1;
+                cur = ww % w;
+                continue;
+            }
+            var need = cur ? cur + sp + ww : ww;
+            if (need <= w) cur = need; else { n++; cur = ww; }
+        }
+        return n;
+    }
+    function fitNames() {
+        var els = grid.querySelectorAll('.card .nm[data-v]');
+        if (!els.length) return;
+        var w = els[0].clientWidth - 1;
+        if (w <= 0) return;
+        var cs = getComputedStyle(els[0]);
+        FIT.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+        Array.prototype.forEach.call(els, function (nm) {
+            var opts = JSON.parse(nm.getAttribute('data-v')), pick = opts[opts.length - 1];
+            for (var k = 0; k < opts.length; k++) if (lineCount(opts[k], w) <= 2) { pick = opts[k]; break; }
+            if (nm.textContent === pick) { nm.setAttribute('data-fit', '1'); return; }
+            var fade = nm.hasAttribute('data-fit') && !(STILL && STILL.matches) && nm.animate;
+            nm.textContent = pick;
+            nm.setAttribute('data-fit', '1');
+            if (fade) nm.animate([{ opacity: 0.4 }, { opacity: 1 }], { duration: 240, easing: 'ease-out' });
+        });
+    }
+    var fitQueued = false;
+    function fitSoon() {
+        if (fitQueued) return;
+        fitQueued = true;
+        requestAnimationFrame(function () { fitQueued = false; fitNames(); });
+    }
+    if (window.ResizeObserver) new ResizeObserver(fitSoon).observe(grid);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitSoon);
     function tile(row, ci) {
         var id = row[0], name = row[1], year = row[2], mints = row[6];
         var a = el('a', 'card');
@@ -269,6 +328,7 @@
         var place = placeOf(row);
         nm.title = (name || 'This event has no name in the archive') + (place ? ' · ' + place : '');
         a.appendChild(nm);
+        if (name && name.length > SHORT_MIN) shortName(nm, id, name);
         a.appendChild(el('span', 'yr', '#' + id + (year ? ' · ' + year : '') + (mints > 0 ? ' · ' + fmt(mints) + ' minted' : '')));
         return a;
     }
